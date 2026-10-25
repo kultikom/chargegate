@@ -13,7 +13,7 @@
  *   columns: 2                    # optional: fixed number of columns (default: responsive)
  *   show_employee: true           # optional
  */
-const CG_VERSION = "1.2.0";
+const CG_VERSION = "1.2.1";
 
 const CG_TEXT = {
   en: {
@@ -102,7 +102,9 @@ class ChargeGateCard extends HTMLElement {
     list.forEach((st) => st.points.sort((x, y) => x.attributes.connector - y.attributes.connector));
     const order = this._config.stations;
     if (order) list.sort((a, b) => order.indexOf(a.id) - order.indexOf(b.id));
-    else list.sort((a, b) => (a.site || "").localeCompare(b.site || "") || a.name.localeCompare(b.name, undefined, { numeric: true }));
+    else list.sort((a, b) => (!a.site - !b.site)                       // stations without a site last
+      || (a.site || "").localeCompare(b.site || "", undefined, { numeric: true })
+      || a.name.localeCompare(b.name, undefined, { numeric: true, sensitivity: "base" }));
     return list;
   }
 

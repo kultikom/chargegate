@@ -1,5 +1,10 @@
 # Changelog
 
+## 1.2.1
+
+- Overview and *Stations* page sort stations by name with natural number order ("Duo 2" before
+  "Duo 10") instead of by charge box ID – the same order as the dashboard card. Sites are sorted by name.
+
 ## 1.2.0
 
 - **Charging point dashboard:** new Home Assistant card `custom:chargegate-card` – all stations at a

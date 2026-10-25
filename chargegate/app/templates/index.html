@@ -12,8 +12,8 @@
     <div class="card empty">{{ _("No approved stations yet. Point a station to this address – it will then appear under “Stations”.") }}
       {% include "_ocpp_url.html" %}</div>
   {% endif %}
-  {% for site, group in stations|groupby('site_id', default=0) %}
-    <h2>{{ group[0].site.name if group[0].site else _('No site') }}</h2>
+  {% for site, group in groups %}
+    <h2>{{ site or _('No site') }}</h2>
     <div class="grid" style="margin-bottom:20px">
       {% for st in group %}
       <div class="card station">

@@ -7,6 +7,7 @@ import csv
 import io
 import json
 import logging
+import re
 from contextvars import ContextVar
 from datetime import datetime, timedelta
 from zoneinfo import ZoneInfo
@@ -35,6 +36,16 @@ templates = Jinja2Templates(directory=f"{BASE}/templates")
 
 
 # --- Formatting -------------------------------------------------------------------------
+
+def natural_key(text: str | None) -> list:
+    """Sort "Duo 2" before "Duo 10" (numbers compared as numbers, case-insensitive)."""
+    return [(0, int(part), "") if part.isdigit() else (1, 0, part.casefold())
+            for part in re.split(r"(\d+)", text or "") if part]
+
+
+def station_key(st: Station) -> list:
+    return natural_key(st.name or st.id)
+
 
 def local(dt: datetime | None, fmt: str = "full") -> str:
     if dt is None:
@@ -255,7 +266,7 @@ async def dashboard(request: Request, user=Depends(admin)):
     async with Session() as s:
         stations = (await s.execute(select(Station).where(Station.approved)
                                     .options(selectinload(Station.site), selectinload(Station.connectors))
-                                    .order_by(Station.site_id, Station.id))).scalars().all()
+                                    )).scalars().all()
         pending = (await s.execute(select(func.count()).select_from(Station)
                                    .where(Station.approved.is_(False)))).scalar()
         running = (await s.execute(select(Transaction).where(Transaction.stopped_at.is_(None))
@@ -264,7 +275,12 @@ async def dashboard(request: Request, user=Depends(admin)):
                                    .order_by(Transaction.started_at.desc()))).scalars().all()
         events = (await s.execute(select(AuthEvent).options(selectinload(AuthEvent.employee))
                                   .order_by(AuthEvent.ts.desc()).limit(12))).scalars().all()
-    return render(request, "index.html", stations=stations, pending=pending, running=running,
+    # group by site (sites by name, "no site" last), stations by name within each site
+    groups: dict = {}
+    for st in sorted(stations, key=station_key):
+        groups.setdefault(st.site.name if st.site else None, []).append(st)
+    groups = sorted(groups.items(), key=lambda g: (g[0] is None, natural_key(g[0])))
+    return render(request, "index.html", stations=stations, groups=groups, pending=pending, running=running,
                   events=events, online=set(core.connected), ocpp_url=ocpp_url(request))
 
 
@@ -283,7 +299,8 @@ def ocpp_url(request: Request) -> str | None:
 async def stations_page(request: Request, user=Depends(admin)):
     async with Session() as s:
         stations = (await s.execute(select(Station).options(selectinload(Station.site))
-                                    .order_by(Station.approved, Station.id))).scalars().all()
+                                    )).scalars().all()
+        stations = sorted(stations, key=lambda st: (st.approved, station_key(st)))  # pending first
         sites = (await s.execute(select(Site).order_by(Site.name))).scalars().all()
     return render(request, "stations.html", stations=stations, sites=sites, online=set(core.connected),
                   ocpp_url=ocpp_url(request))
