@@ -1,5 +1,5 @@
 name: ChargeGate
-version: "1.0.0"
+version: "1.1.0"
 slug: chargegate
 description: OCPP server for company-wide RFID charging access across multiple sites
 url: https://github.com/kultikom/chargegate
@@ -16,6 +16,10 @@ panel_icon: mdi:ev-station
 panel_title: ChargeGate
 panel_admin: true
 
+hassio_api: true          # read host IP and port mapping to show the OCPP address
+services:
+  - mqtt:want             # use the Mosquitto broker app for the Home Assistant entities
+
 ports:
   9000/tcp: 9000
   8099/tcp: null
@@ -31,14 +35,24 @@ options:
   local_list_enabled: true
   apply_station_config: true
   heartbeat_interval: 300
+  meter_value_interval: 60
   log_ocpp_messages: false
+  mqtt_enabled: true
+  employee_display: name
 schema:
   language: list(auto|en|de)
   require_station_approval: bool
   local_list_enabled: bool
   apply_station_config: bool
   heartbeat_interval: int(30,3600)
+  meter_value_interval: int(10,3600)
   log_ocpp_messages: bool
+  mqtt_enabled: bool
+  employee_display: list(name|initials|hidden)
+  mqtt_host: str?
+  mqtt_port: port?
+  mqtt_username: str?
+  mqtt_password: password?
   admin_password: password?
   entra_tenant_id: str?
   entra_client_id: str?

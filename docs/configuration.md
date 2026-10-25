@@ -12,6 +12,8 @@ The Home Assistant app maps its options to the same variables.
 | `OCPP_PORT` | – | `9000` | WebSocket port for stations |
 | `WEB_PORT` | – | `8080` (HA: `8099`) | web UI port |
 | `HEARTBEAT_INTERVAL` | `heartbeat_interval` | `300` | seconds |
+| `METER_VALUE_INTERVAL` | `meter_value_interval` | `60` | seconds between meter values while charging |
+| `PUBLIC_OCPP_URL` | – (from Supervisor) | from request | OCPP address shown in the UI |
 | `REQUIRE_STATION_APPROVAL` | `require_station_approval` | `true` | reject unknown stations until approved |
 | `LOCAL_LIST_ENABLED` | `local_list_enabled` | `true` | push valid tags to stations |
 | `LOCAL_LIST_CHUNK` | – | `100` | tags per SendLocalList message |
@@ -19,6 +21,12 @@ The Home Assistant app maps its options to the same variables.
 | `LOG_OCPP_MESSAGES` | `log_ocpp_messages` | `false` | log raw OCPP traffic |
 | `ADMIN_PASSWORD` | `admin_password` | `admin` (HA: empty) | local login; empty disables it |
 | `INGRESS_TRUSTED_IPS` | – | empty (HA: Supervisor) | proxy IPs whose ingress headers are trusted |
+| `MQTT_ENABLED` | `mqtt_enabled` | `false` (HA: `true`) | publish to Home Assistant |
+| `MQTT_HOST`, `MQTT_PORT` | `mqtt_host`, `mqtt_port` | – / `1883` | HA: from the Mosquitto app |
+| `MQTT_USERNAME`, `MQTT_PASSWORD` | `mqtt_username`, `mqtt_password` | – | |
+| `MQTT_BASE_TOPIC` | – | `chargegate` | |
+| `MQTT_DISCOVERY_PREFIX` | – | `homeassistant` | |
+| `HA_EMPLOYEE_DISPLAY` | `employee_display` | `name` | `name`, `initials` or `hidden` |
 | `ENTRA_TENANT_ID` | `entra_tenant_id` | – | |
 | `ENTRA_CLIENT_ID` | `entra_client_id` | – | |
 | `ENTRA_CLIENT_SECRET` | `entra_client_secret` | – | |

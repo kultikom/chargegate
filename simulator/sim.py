@@ -50,37 +50,41 @@ class CP201(_CP201):
         return r201.ClearCache(status="Accepted")
 
 
+CONNECTOR = 1
+
+
 def now():
     return datetime.now(UTC).isoformat()
 
 
 async def run16(cp, tag, kwh, steps):
     await cp.call(c16.BootNotification(charge_point_vendor="Simulator", charge_point_model="Sim16"))
-    await cp.call(c16.StatusNotification(connector_id=1, error_code="NoError", status="Available"))
+    await cp.call(c16.StatusNotification(connector_id=CONNECTOR, error_code="NoError", status="Available"))
     res = await cp.call(c16.Authorize(id_tag=tag))
     print("Authorize:", res.id_tag_info["status"])
     if res.id_tag_info["status"] != "Accepted":
         return
-    await cp.call(c16.StatusNotification(connector_id=1, error_code="NoError", status="Charging"))
+    await cp.call(c16.StatusNotification(connector_id=CONNECTOR, error_code="NoError", status="Charging"))
     meter = 1_250_000
-    start = await cp.call(c16.StartTransaction(connector_id=1, id_tag=tag, meter_start=meter, timestamp=now()))
+    start = await cp.call(c16.StartTransaction(connector_id=CONNECTOR, id_tag=tag, meter_start=meter, timestamp=now()))
     tx = start.transaction_id
     print("Transaction", tx)
     for _ in range(steps):
         await asyncio.sleep(0.5)
         meter += int(kwh * 1000 / steps)
-        await cp.call(c16.MeterValues(connector_id=1, transaction_id=tx, meter_value=[{
+        await cp.call(c16.MeterValues(connector_id=CONNECTOR, transaction_id=tx, meter_value=[{
             "timestamp": now(),
-            "sampledValue": [{"value": str(meter), "measurand": "Energy.Active.Import.Register", "unit": "Wh"}]}]))
+            "sampledValue": [{"value": str(meter), "measurand": "Energy.Active.Import.Register", "unit": "Wh"},
+                             {"value": "11000", "measurand": "Power.Active.Import", "unit": "W"}]}]))
     await cp.call(c16.StopTransaction(meter_stop=meter, timestamp=now(), transaction_id=tx, reason="EVDisconnected"))
-    await cp.call(c16.StatusNotification(connector_id=1, error_code="NoError", status="Available"))
+    await cp.call(c16.StatusNotification(connector_id=CONNECTOR, error_code="NoError", status="Available"))
     print(f"Done, charged {kwh} kWh")
 
 
 async def run201(cp, tag, kwh, steps):
     await cp.call(c201.BootNotification(charging_station={"model": "Sim201", "vendor_name": "Simulator"},
                                         reason="PowerUp"))
-    await cp.call(c201.StatusNotification(timestamp=now(), connector_status="Available", evse_id=1, connector_id=1))
+    await cp.call(c201.StatusNotification(timestamp=now(), connector_status="Available", evse_id=CONNECTOR, connector_id=1))
     res = await cp.call(c201.Authorize(id_token={"id_token": tag, "type": "ISO14443"}))
     print("Authorize:", res.id_token_info["status"])
     if res.id_token_info["status"] != "Accepted":
@@ -91,12 +95,13 @@ async def run201(cp, tag, kwh, steps):
     def mv(v):
         return [{"timestamp": now(), "sampledValue": [
             {"value": round(v, 3), "measurand": "Energy.Active.Import.Register",
-             "unitOfMeasure": {"unit": "kWh"}}]}]
+             "unitOfMeasure": {"unit": "kWh"}},
+            {"value": 7.4, "measurand": "Power.Active.Import", "unitOfMeasure": {"unit": "kW"}}]}]
 
     await cp.call(c201.TransactionEvent(event_type="Started", timestamp=now(), trigger_reason="Authorized",
                                         seq_no=0, transaction_info={"transactionId": tx},
                                         id_token={"id_token": tag, "type": "ISO14443"},
-                                        evse={"id": 1, "connectorId": 1}, meter_value=mv(kwh_meter)))
+                                        evse={"id": CONNECTOR, "connectorId": 1}, meter_value=mv(kwh_meter)))
     for i in range(steps):
         await asyncio.sleep(0.5)
         kwh_meter += kwh / steps
@@ -119,8 +124,11 @@ async def main():
     p.add_argument("--password")
     p.add_argument("--kwh", type=float, default=7.5)
     p.add_argument("--steps", type=int, default=3)
+    p.add_argument("--connector", type=int, default=1, help="connector (1.6) / EVSE (2.0.1) to use")
     p.add_argument("--stay", type=float, default=0, help="stay connected for N more seconds afterwards")
     a = p.parse_args()
+    global CONNECTOR
+    CONNECTOR = a.connector
 
     headers = {}
     if a.password:

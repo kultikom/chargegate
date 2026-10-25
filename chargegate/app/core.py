@@ -19,6 +19,30 @@ log = logging.getLogger("core")
 connected: dict[str, object] = {}
 
 ENERGY = "Energy.Active.Import.Register"
+POWER = "Power.Active.Import"
+CHARGING_STATES = {"Charging", "Occupied", "SuspendedEV", "SuspendedEVSE"}
+
+
+# --- Change notifications (used by the Home Assistant / MQTT bridge) --------------------
+
+_listeners: list = []
+
+
+def add_listener(fn) -> None:
+    """fn(station_id or None) is called after anything a station shows has changed."""
+    _listeners.append(fn)
+
+
+def notify(station_id: str | None) -> None:
+    for fn in _listeners:
+        try:
+            fn(station_id)
+        except Exception:  # noqa: BLE001
+            log.exception("listener failed")
+
+
+def notify_all() -> None:
+    notify(None)
 
 
 # --- Authorization ------------------------------------------------------------------
@@ -80,10 +104,31 @@ async def set_connector_status(station_id: str, connector_id: int, status: str,
             cs = ConnectorStatus(station_id=station_id, connector_id=connector_id, status=status)
             s.add(cs)
         cs.status, cs.error_code, cs.updated = status, error_code, utcnow()
+        if status not in CHARGING_STATES:
+            cs.power_w = 0.0
         st = await s.get(Station, station_id)
         if st:
             st.last_seen = utcnow()
         await s.commit()
+    notify(station_id)
+
+
+async def record_meter(station_id: str, connector_id: int | None, energy_wh: float | None,
+                       power_w: float | None = None) -> None:
+    """Remember the latest energy register / power reading per connector."""
+    if not connector_id or (energy_wh is None and power_w is None):
+        return
+    async with Session() as s:
+        cs = await s.get(ConnectorStatus, (station_id, connector_id))
+        if cs is None:
+            cs = ConnectorStatus(station_id=station_id, connector_id=connector_id, status="Unknown")
+            s.add(cs)
+        if energy_wh is not None:
+            cs.energy_wh = energy_wh
+        if power_w is not None:
+            cs.power_w = power_w
+        await s.commit()
+    notify(station_id)
 
 
 # --- Transactions ---------------------------------------------------------------------
@@ -103,7 +148,8 @@ async def start_transaction(station_id: str, connector_id: int | None, raw_uid: 
         if tx.ocpp_tx_id is None:          # OCPP 1.6: our primary key is the transactionId
             tx.ocpp_tx_id = str(tx.id)
         await s.commit()
-        return tx
+    notify(station_id)
+    return tx
 
 
 async def find_transaction(station_id: str, ocpp_tx_id: str) -> Transaction | None:
@@ -127,7 +173,8 @@ async def update_transaction(station_id: str, ocpp_tx_id: str, **fields) -> Tran
                 tx.meter_start_wh = v
             setattr(tx, k, v)
         await s.commit()
-        return tx
+    notify(station_id)
+    return tx
 
 
 def parse_ts(value: str | None) -> datetime:
@@ -147,11 +194,21 @@ def parse_ts(value: str | None) -> datetime:
 
 # --- Meter values ---------------------------------------------------------------------
 
-_FACTOR = {"wh": 1.0, "kwh": 1000.0}
+_FACTOR = {"wh": 1.0, "kwh": 1000.0, "w": 1.0, "kw": 1000.0}
 
 
 def energy_wh_from_meter_values(meter_values: list | None) -> float | None:
-    """Return the total energy register (Energy.Active.Import.Register) in Wh.
+    """Return the total energy register (Energy.Active.Import.Register) in Wh."""
+    return _sampled(meter_values, ENERGY, "Wh")
+
+
+def power_w_from_meter_values(meter_values: list | None) -> float | None:
+    """Return the total active power (Power.Active.Import) in W."""
+    return _sampled(meter_values, POWER, "W")
+
+
+def _sampled(meter_values: list | None, measurand: str, default_unit: str) -> float | None:
+    """Latest value of a measurand, converted to Wh or W.
 
     Works for 1.6 (value as string, unit) and 2.0.1 (value as number,
     unit_of_measure with multiplier). Per-phase values are ignored.
@@ -159,7 +216,7 @@ def energy_wh_from_meter_values(meter_values: list | None) -> float | None:
     best = None
     for mv in meter_values or []:
         for sv in mv.get("sampled_value", []):
-            if sv.get("measurand", ENERGY) != ENERGY or sv.get("phase"):
+            if sv.get("measurand", ENERGY) != measurand or sv.get("phase"):
                 continue
             if sv.get("format") == "SignedData" or "signed_meter_value" in sv:
                 continue  # signed record for German calibration law (e.g. OCMF) – not numeric
@@ -169,10 +226,10 @@ def energy_wh_from_meter_values(meter_values: list | None) -> float | None:
                 continue
             if "unit_of_measure" in sv:                       # 2.0.1
                 uom = sv.get("unit_of_measure") or {}
-                unit = (uom.get("unit") or "Wh").lower()
+                unit = (uom.get("unit") or default_unit).lower()
                 value *= 10 ** int(uom.get("multiplier", 0))
             else:                                             # 1.6
-                unit = (sv.get("unit") or "Wh").lower()
+                unit = (sv.get("unit") or default_unit).lower()
             best = value * _FACTOR.get(unit, 1.0)
     return best
 
@@ -230,12 +287,17 @@ async def push_local_list(station_id: str) -> str:
     return status
 
 
-# Standard OCPP 1.6 keys understood by all common stations (e.g. Compleo, Alfen)
-STATION_CONFIG_16 = {
-    "MeterValueSampleInterval": "300",                       # meter reading every 5 min
-    "MeterValuesSampledData": "Energy.Active.Import.Register",
-    "StopTransactionOnInvalidId": "true",                    # blocked tag -> charging stops
-}
+def station_config_16() -> list[tuple[str, list[str]]]:
+    """Standard OCPP 1.6 keys understood by all common stations (e.g. Compleo, Alfen).
+
+    Each key has a list of values to try in order – the first accepted one wins.
+    """
+    return [
+        ("MeterValueSampleInterval", [str(config.METER_VALUE_INTERVAL)]),
+        # energy register + power; fall back to energy only if the station rejects power
+        ("MeterValuesSampledData", [f"{ENERGY},{POWER}", ENERGY]),
+        ("StopTransactionOnInvalidId", ["true"]),            # blocked tag -> charging stops
+    ]
 
 
 async def apply_station_config(station_id: str) -> None:
@@ -243,12 +305,16 @@ async def apply_station_config(station_id: str) -> None:
     if cp is None or cp.version != "1.6":
         return
     from ocpp.v16 import call as c16
-    for key, value in STATION_CONFIG_16.items():
-        try:
-            res = await cp.call(c16.ChangeConfiguration(key=key, value=value))
-            log.info("%s: %s=%s -> %s", station_id, key, value, res.status)
-        except Exception as exc:  # noqa: BLE001
-            log.warning("%s: could not set %s (%s)", station_id, key, exc)
+    for key, values in station_config_16():
+        for value in values:
+            try:
+                res = await cp.call(c16.ChangeConfiguration(key=key, value=value))
+                log.info("%s: %s=%s -> %s", station_id, key, value, res.status)
+                if res.status in ("Accepted", "RebootRequired"):
+                    break
+            except Exception as exc:  # noqa: BLE001
+                log.warning("%s: could not set %s (%s)", station_id, key, exc)
+                break
 
 
 async def push_later(station_id: str, delay: float = 5) -> None:

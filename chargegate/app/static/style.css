@@ -90,3 +90,6 @@ details[open] summary { margin-bottom: 12px; }
 .grid > *, .cols > * { margin-top: 0 !important; }
 .foot { max-width: 1180px; margin: 0 auto; padding: 0 16px 32px; color: var(--muted); font-size: 12px; }
 .card + .cols, section + .cols { margin-top: 20px; }
+.urlbox { display: flex; flex-wrap: wrap; gap: 8px 12px; align-items: center; margin: 4px 0 20px; }
+.urlbox code { font-size: 15px; padding: 6px 10px; background: var(--card); border: 1px solid var(--line); border-radius: 7px; user-select: all; word-break: break-all; }
+.card.empty .urlbox { margin: 12px 0 0; }

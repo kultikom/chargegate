@@ -6,7 +6,7 @@ def _bool(name: str, default: bool = False) -> bool:
     return os.getenv(name, str(default)).strip().lower() in ("1", "true", "yes", "on")
 
 
-VERSION = "1.0.0"
+VERSION = "1.1.0"
 
 DATABASE_URL = os.getenv("DATABASE_URL", "sqlite+aiosqlite:///./chargegate.db")
 SECRET_KEY = os.getenv("SECRET_KEY", "change-me")
@@ -17,6 +17,9 @@ LANGUAGE = os.getenv("LANGUAGE_UI", "auto")  # auto | en | de
 OCPP_PORT = int(os.getenv("OCPP_PORT", "9000"))
 WEB_PORT = int(os.getenv("WEB_PORT", "8080"))
 HEARTBEAT_INTERVAL = int(os.getenv("HEARTBEAT_INTERVAL", "300"))
+# Address the stations should use, shown in the UI. Empty = derived from the request.
+# "disabled" = the OCPP port is not mapped (Home Assistant network settings).
+PUBLIC_OCPP_URL = os.getenv("PUBLIC_OCPP_URL", "")
 LOG_OCPP_MESSAGES = _bool("LOG_OCPP_MESSAGES", False)
 
 # Unknown stations show up as "pending" and are rejected until an admin approves them
@@ -26,6 +29,7 @@ LOCAL_LIST_ENABLED = _bool("LOCAL_LIST_ENABLED", True)
 LOCAL_LIST_CHUNK = int(os.getenv("LOCAL_LIST_CHUNK", "100"))
 # On connect: set meter value interval and StopTransactionOnInvalidId (OCPP 1.6)
 APPLY_STATION_CONFIG = _bool("APPLY_STATION_CONFIG", True)
+METER_VALUE_INTERVAL = int(os.getenv("METER_VALUE_INTERVAL", "60"))  # seconds while charging
 
 # Local admin login (empty = disabled)
 ADMIN_PASSWORD = os.getenv("ADMIN_PASSWORD", "admin")
@@ -49,3 +53,14 @@ _ENTRA_CREDS = bool(ENTRA_TENANT_ID and ENTRA_CLIENT_ID and ENTRA_CLIENT_SECRET)
 # In the Home Assistant app, HA handles login; Entra is then used for the sync only
 ENTRA_LOGIN_ENABLED = _ENTRA_CREDS and _bool("ENTRA_LOGIN", True)
 ENTRA_SYNC_ENABLED = _ENTRA_CREDS and bool(ENTRA_SYNC_GROUP_ID)
+
+# Home Assistant via MQTT discovery
+MQTT_ENABLED = _bool("MQTT_ENABLED", False)
+MQTT_HOST = os.getenv("MQTT_HOST", "")
+MQTT_PORT = int(os.getenv("MQTT_PORT", "1883"))
+MQTT_USERNAME = os.getenv("MQTT_USERNAME", "")
+MQTT_PASSWORD = os.getenv("MQTT_PASSWORD", "")
+MQTT_BASE_TOPIC = os.getenv("MQTT_BASE_TOPIC", "chargegate")
+MQTT_DISCOVERY_PREFIX = os.getenv("MQTT_DISCOVERY_PREFIX", "homeassistant")
+# How the employee currently charging is shown in Home Assistant: name | initials | hidden
+HA_EMPLOYEE_DISPLAY = os.getenv("HA_EMPLOYEE_DISPLAY", "name")

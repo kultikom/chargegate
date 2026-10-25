@@ -9,8 +9,8 @@
 
 <section>
   {% if not stations %}
-    <div class="card empty">{{ _("No approved stations yet. Point a station to") }}
-      <code>ws://&lt;server&gt;:{{ ocpp_port }}/ocpp/</code> – {{ _("it will then appear under “Stations”.") }}</div>
+    <div class="card empty">{{ _("No approved stations yet. Point a station to this address – it will then appear under “Stations”.") }}
+      {% include "_ocpp_url.html" %}</div>
   {% endif %}
   {% for site, group in stations|groupby('site_id', default=0) %}
     <h2>{{ group[0].site.name if group[0].site else _('No site') }}</h2>

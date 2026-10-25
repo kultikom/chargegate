@@ -93,6 +93,7 @@ async def ocpp_endpoint(ws: WebSocket):
             pass
     core.connected[station_id] = cp
     log.info("%s connected (OCPP %s)", station_id, cls.version)
+    core.notify(station_id)
     try:
         await cp.start()
     except WebSocketDisconnect:
@@ -103,6 +104,7 @@ async def ocpp_endpoint(ws: WebSocket):
         if core.connected.get(station_id) is cp:
             core.connected.pop(station_id, None)
         await core.touch_station(station_id)
+        core.notify(station_id)
         log.info("%s disconnected", station_id)
 
 

@@ -31,6 +31,7 @@ class ChargePoint201(CP201):
             self.id, vendor=charging_station.get("vendor_name"), model=charging_station.get("model"),
             serial=charging_station.get("serial_number"),
             firmware=charging_station.get("firmware_version"), ocpp_version="2.0.1")
+        core.notify(self.id)  # vendor/model for the HA device
         if config.LOCAL_LIST_ENABLED or config.APPLY_STATION_CONFIG:
             asyncio.create_task(core.push_later(self.id))
         return call_result.BootNotification(current_time=_now(), interval=config.HEARTBEAT_INTERVAL,
@@ -57,6 +58,7 @@ class ChargePoint201(CP201):
                                    evse=None, **kw):
         tx_id = transaction_info["transaction_id"]
         wh = core.energy_wh_from_meter_values(meter_value)
+        w = core.power_w_from_meter_values(meter_value)
         uid = _token(id_token)
         status = emp_id = None
         if uid:
@@ -74,10 +76,13 @@ class ChargePoint201(CP201):
                 fields.update(tag_uid=uid, employee_id=emp_id)
             await core.update_transaction(self.id, tx_id, **fields)
 
+        connector = (evse or {}).get("id") or tx.connector_id
         if event_type == "Ended":
             await core.update_transaction(
                 self.id, tx_id, stopped_at=core.parse_ts(timestamp), meter_stop_wh=wh,
                 stop_reason=transaction_info.get("stopped_reason") or trigger_reason)
+            w = 0.0
+        await core.record_meter(self.id, connector, wh, w)
 
         if status:
             return call_result.TransactionEvent(id_token_info={"status": status})
@@ -85,6 +90,8 @@ class ChargePoint201(CP201):
 
     @on(Action.meter_values)
     async def on_meter_values(self, evse_id, meter_value, **kw):
+        await core.record_meter(self.id, evse_id, core.energy_wh_from_meter_values(meter_value),
+                                core.power_w_from_meter_values(meter_value))
         await core.touch_station(self.id)
         return call_result.MeterValues()
 

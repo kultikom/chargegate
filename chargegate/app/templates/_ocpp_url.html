@@ -1,0 +1,26 @@
+{% if ocpp_url == 'disabled' %}
+<div class="notice">{{ _("The OCPP port is disabled in the app's network settings – stations cannot connect.") }}</div>
+{% elif ocpp_url %}
+<div class="urlbox">
+  <span class="muted">{{ _("OCPP address for your stations:") }}</span>
+  <code id="ocpp-url">{{ ocpp_url }}</code>
+  <button type="button" class="ghost" onclick="copyUrl(this)">{{ _("Copy") }}</button>
+  <span class="muted" style="font-size:12px">{{ _("The station appends its ChargeBox ID itself.") }}</span>
+</div>
+<script>
+function copyUrl(btn) {
+  var text = document.getElementById('ocpp-url').textContent;
+  var done = function () { btn.textContent = {{ _("Copied")|tojson }}; setTimeout(function () { btn.textContent = {{ _("Copy")|tojson }}; }, 1500); };
+  if (navigator.clipboard && window.isSecureContext) {
+    navigator.clipboard.writeText(text).then(done, fallback);
+  } else { fallback(); }
+  function fallback() {
+    var r = document.createRange(); r.selectNodeContents(document.getElementById('ocpp-url'));
+    var sel = window.getSelection(); sel.removeAllRanges(); sel.addRange(r);
+    try { document.execCommand('copy'); done(); } catch (e) {}
+  }
+}
+</script>
+{% else %}
+<p class="sub">{{ _("OCPP address for your stations:") }} <code>ws://&lt;server&gt;:{{ ocpp_port }}/ocpp/&lt;ChargeBoxId&gt;</code></p>
+{% endif %}

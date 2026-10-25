@@ -100,8 +100,12 @@ DE = {
     "{n} new station(s) connected and are waiting for approval.":
         "{n} neue Station(en) haben sich gemeldet und warten auf Freigabe.",
     "Review now →": "Jetzt prüfen →",
-    "No approved stations yet. Point a station to": "Noch keine Stationen freigegeben. Trag in der Wallbox",
-    "it will then appear under “Stations”.": "ein – sie erscheint dann unter „Stationen“.",
+    "No approved stations yet. Point a station to this address – it will then appear under “Stations”.":
+        "Noch keine Stationen freigegeben. Trag diese Adresse in der Wallbox ein – sie erscheint dann unter „Stationen“.",
+    "Copy": "Kopieren", "Copied": "Kopiert",
+    "The station appends its ChargeBox ID itself.": "Die Wallbox hängt ihre ChargeBox-ID selbst an.",
+    "The OCPP port is disabled in the app's network settings – stations cannot connect.":
+        "Der OCPP-Port ist in den Netzwerk-Einstellungen der App deaktiviert – Wallboxen können sich nicht verbinden.",
     "No site": "Ohne Standort", "no status yet": "noch kein Status", "last seen": "zuletzt gesehen",
     "Running sessions": "Laufende Ladevorgänge", "Employee": "Mitarbeiter", "Station": "Station",
     "Since": "Seit", "So far": "Bisher", "Nobody is charging right now.": "Gerade lädt niemand.",
@@ -140,6 +144,9 @@ DE = {
     "Deactivate": "Deaktivieren", "Activate": "Aktivieren", "Delete employee?": "Mitarbeiter löschen?",
     "No employees found.": "Keine Mitarbeiter gefunden.", "Add employee manually": "Mitarbeiter manuell anlegen",
     "Tag UID": "Chip-UID",
+    "Employees from Entra are maintained in Entra ID": "Entra-Mitarbeiter werden in Entra ID gepflegt",
+    "Name must not be empty": "Der Name darf nicht leer sein", "{name} saved": "{name} gespeichert",
+    "Tag labels": "Chip-Bezeichnungen",
     "Employees and tags are imported from the Entra group. Tag UIDs are read from the attribute":
         "Mitarbeiter und Chips werden aus der Entra-Gruppe übernommen. Chip-UIDs stehen im Attribut",
     "Last run": "Letzter Lauf", "Sync now": "Jetzt synchronisieren",

@@ -39,17 +39,39 @@
     {% for e in employees %}
     <tr class="{{ '' if e.active else 'inactive' }}">
       <td><strong>{{ e.name }}</strong>{% if not e.active %} <span class="pill warn">{{ _("deactivated") }}</span>{% endif %}
-        <br><span class="muted">{{ e.email or '' }}</span></td>
+        <br><span class="muted">{{ e.email or '' }}</span>
+        {% if e.source != 'entra' %}
+        <details style="margin-top:6px"><summary style="font-size:13px">{{ _("Edit") }}</summary>
+          <form method="post" action="{{ base }}/employees/{{ e.id }}/edit">
+            <div class="row">
+              <div><label>{{ _("Name") }}</label><input name="name" value="{{ e.name }}" required></div>
+              <div><label>{{ _("Email") }}</label><input name="email" type="email" value="{{ e.email or '' }}"></div>
+            </div>
+            <p style="margin:8px 0 0"><button>{{ _("Save") }}</button></p>
+          </form>
+        </details>
+        {% endif %}</td>
       <td>
         <div class="tags">
         {% for t in e.tags %}
           <span class="tag {{ '' if t.active else 'off' }}" title="{{ t.label or '' }}">
-            <span class="mono">{{ t.uid }}</span>
+            <span class="mono">{{ t.uid }}</span>{% if t.label %}<span class="muted" style="font-size:12px">{{ t.label }}</span>{% endif %}
             <form method="post" action="{{ base }}/tags/{{ t.id }}/toggle" class="inline"><button title="{{ _('block') if t.active else _('unblock') }}">{{ '⏸' if t.active else '▶' }}</button></form>
             {% if t.source != 'entra' %}<form method="post" action="{{ base }}/tags/{{ t.id }}/delete" class="inline" onsubmit="return confirm('{{ _('Delete tag?') }}')"><button title="{{ _('delete') }}">✕</button></form>{% endif %}
           </span>
         {% else %}<span class="muted">{{ _("no tag") }}</span>{% endfor %}
         </div>
+        {% if e.tags %}
+        <details style="margin-top:6px"><summary style="font-size:13px">{{ _("Tag labels") }}</summary>
+          {% for t in e.tags %}
+          <form method="post" action="{{ base }}/tags/{{ t.id }}/label" class="row" style="margin-bottom:6px">
+            <div style="flex:0 0 auto;align-self:center" class="mono">{{ t.uid }}</div>
+            <div><input name="label" value="{{ t.label or '' }}" placeholder="{{ _('Label (optional)') }}"></div>
+            <button style="flex:0" class="ghost">{{ _("Save") }}</button>
+          </form>
+          {% endfor %}
+        </details>
+        {% endif %}
         <details style="margin-top:6px"><summary style="font-size:13px">{{ _("+ Tag") }}</summary>
           <form method="post" action="{{ base }}/tags/add" class="row">
             <input type="hidden" name="employee_id" value="{{ e.id }}">
@@ -59,7 +81,7 @@
           </form>
         </details>
       </td>
-      <td><span class="pill">{{ _(e.source) }}</span></td>
+      <td><span class="pill" {% if e.source == 'entra' %}title="{{ _('Employees from Entra are maintained in Entra ID') }}"{% endif %}>{{ _(e.source) }}</span></td>
       <td style="white-space:nowrap">
         <form method="post" action="{{ base }}/employees/{{ e.id }}/toggle" class="inline"><button class="ghost">{{ _("Deactivate") if e.active else _("Activate") }}</button></form>
         <form method="post" action="{{ base }}/employees/{{ e.id }}/delete" class="inline" onsubmit="return confirm('{{ _('Delete employee?') }}')"><button class="ghost danger">{{ _("Delete") }}</button></form>

@@ -10,3 +10,4 @@ Authlib==1.9.1
 itsdangerous==2.2.0
 httpx==0.28.1
 websockets==17.3
+aiomqtt==2.5.1

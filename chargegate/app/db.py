@@ -62,6 +62,8 @@ class ConnectorStatus(Base):
     status: Mapped[str] = mapped_column(String(30))
     error_code: Mapped[str | None] = mapped_column(String(50))
     updated: Mapped[datetime] = mapped_column(DateTime, default=utcnow)
+    energy_wh: Mapped[float | None] = mapped_column(Float)   # last energy register reading
+    power_w: Mapped[float | None] = mapped_column(Float)     # last active power reading
 
 
 class Employee(Base):
@@ -133,9 +135,29 @@ class SyncState(Base):
     message: Mapped[str | None] = mapped_column(String(500))
 
 
+def _add_missing_columns(sync_conn) -> None:
+    """Lightweight schema upgrade: add new nullable columns to existing tables.
+
+    create_all() only creates missing tables. New releases only ever add nullable
+    columns, so an ALTER TABLE ... ADD COLUMN per missing column is enough.
+    """
+    from sqlalchemy import inspect
+    insp = inspect(sync_conn)
+    existing_tables = set(insp.get_table_names())
+    for table in Base.metadata.sorted_tables:
+        if table.name not in existing_tables:
+            continue
+        have = {c["name"] for c in insp.get_columns(table.name)}
+        for col in table.columns:
+            if col.name not in have:
+                ddl = col.type.compile(dialect=sync_conn.dialect)
+                sync_conn.exec_driver_sql(f'ALTER TABLE {table.name} ADD COLUMN {col.name} {ddl}')
+
+
 async def init_db() -> None:
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
+        await conn.run_sync(_add_missing_columns)
 
 
 # --- Helpers ---------------------------------------------------------

@@ -10,9 +10,27 @@ configuration:
     description: Gültige Chips werden per SendLocalList auf die Boxen geschoben, damit auch bei Netzausfall geladen werden kann.
   apply_station_config:
     name: Standardeinstellungen setzen
-    description: Beim Verbinden Zählerintervall (5 Min.) und StopTransactionOnInvalidId setzen (OCPP 1.6).
+    description: Beim Verbinden Messwert-Intervall, Messgrößen (Energie + Leistung) und StopTransactionOnInvalidId setzen (OCPP 1.6).
   heartbeat_interval:
     name: Heartbeat-Intervall (Sekunden)
+  meter_value_interval:
+    name: Messwert-Intervall (Sekunden)
+    description: Wie oft die Wallboxen während des Ladens Messwerte senden. Kürzer = gleichmäßigere Leistungsanzeige in Home Assistant.
+  mqtt_enabled:
+    name: An Home Assistant übergeben (MQTT)
+    description: Legt pro Wallbox ein Gerät mit Status, Leistung, Energie und aktuellem Mitarbeiter an. Nutzt automatisch die Mosquitto-Broker-App.
+  employee_display:
+    name: Anzeige des Mitarbeiters in Home Assistant
+    description: "name: voller Name, initials: z. B. M.T., hidden: keine Mitarbeiter-Entität (Datenschutz)."
+  mqtt_host:
+    name: MQTT-Host (optional)
+    description: Nur nötig, wenn ihr nicht die Mosquitto-Broker-App nutzt.
+  mqtt_port:
+    name: MQTT-Port (optional)
+  mqtt_username:
+    name: MQTT-Benutzer (optional)
+  mqtt_password:
+    name: MQTT-Passwort (optional)
   log_ocpp_messages:
     name: OCPP-Nachrichten protokollieren
     description: Für die Inbetriebnahme neuer Wallbox-Typen – erzeugt viel Log.

@@ -265,10 +265,19 @@ async def dashboard(request: Request, user=Depends(admin)):
         events = (await s.execute(select(AuthEvent).options(selectinload(AuthEvent.employee))
                                   .order_by(AuthEvent.ts.desc()).limit(12))).scalars().all()
     return render(request, "index.html", stations=stations, pending=pending, running=running,
-                  events=events, online=set(core.connected))
+                  events=events, online=set(core.connected), ocpp_url=ocpp_url(request))
 
 
 # --- Stations & sites -------------------------------------------------------------------------
+
+def ocpp_url(request: Request) -> str | None:
+    """The ready-to-use URL for the stations, or None if it can't be determined."""
+    if config.PUBLIC_OCPP_URL:
+        return config.PUBLIC_OCPP_URL
+    if "ingress_user" in request.scope or not request.url.hostname:
+        return None  # behind the HA proxy the request host says nothing about the OCPP host
+    return f"ws://{request.url.hostname}:{config.OCPP_PORT}/ocpp/"
+
 
 @web_app.get("/stations", response_class=HTMLResponse)
 async def stations_page(request: Request, user=Depends(admin)):
@@ -276,7 +285,8 @@ async def stations_page(request: Request, user=Depends(admin)):
         stations = (await s.execute(select(Station).options(selectinload(Station.site))
                                     .order_by(Station.approved, Station.id))).scalars().all()
         sites = (await s.execute(select(Site).order_by(Site.name))).scalars().all()
-    return render(request, "stations.html", stations=stations, sites=sites, online=set(core.connected))
+    return render(request, "stations.html", stations=stations, sites=sites, online=set(core.connected),
+                  ocpp_url=ocpp_url(request))
 
 
 @web_app.post("/stations/save")
@@ -295,6 +305,7 @@ async def station_save(request: Request, user=Depends(admin), id: str = Form(...
             st.password_hash = None
         s.add(st)
         await s.commit()
+    core.notify(sid)
     flash(request, _("Station {id} saved", id=sid))
     return back("/stations")
 
@@ -305,6 +316,7 @@ async def station_delete(request: Request, sid: str, user=Depends(admin)):
         if st := await s.get(Station, sid):
             await s.delete(st)
             await s.commit()
+    core.notify(sid)
     flash(request, _("Station {id} deleted", id=sid))
     return back("/stations")
 
@@ -335,6 +347,7 @@ async def site_delete(request: Request, site_id: int, user=Depends(admin)):
         if site := await s.get(Site, site_id):
             await s.delete(site)
             await s.commit()
+    core.notify_all()
     return back("/stations")
 
 
@@ -391,6 +404,25 @@ async def employee_toggle(request: Request, emp_id: int, user=Depends(admin)):
     return back("/employees")
 
 
+@web_app.post("/employees/{emp_id}/edit")
+async def employee_edit(request: Request, emp_id: int, user=Depends(admin), name: str = Form(...),
+                        email: str = Form("")):
+    async with Session() as s:
+        emp = await s.get(Employee, emp_id)
+        if emp is None:
+            flash(request, _("Employee not found"), "err")
+        elif emp.source == "entra":
+            flash(request, _("Employees from Entra are maintained in Entra ID"), "err")
+        elif not name.strip():
+            flash(request, _("Name must not be empty"), "err")
+        else:
+            emp.name, emp.email = name.strip(), email.strip().lower() or None
+            await s.commit()
+            flash(request, _("{name} saved", name=emp.name))
+            core.notify_all()
+    return back("/employees")
+
+
 @web_app.post("/employees/{emp_id}/delete")
 async def employee_delete(request: Request, emp_id: int, user=Depends(admin)):
     async with Session() as s:
@@ -438,6 +470,15 @@ async def tag_toggle(request: Request, tag_id: int, user=Depends(admin)):
             tag.active = not tag.active
             await s.commit()
     core.schedule_push_all()
+    return back("/employees")
+
+
+@web_app.post("/tags/{tag_id}/label")
+async def tag_label(request: Request, tag_id: int, user=Depends(admin), label: str = Form("")):
+    async with Session() as s:
+        if tag := await s.get(Tag, tag_id):
+            tag.label = label.strip() or None
+            await s.commit()
     return back("/employees")
 
 

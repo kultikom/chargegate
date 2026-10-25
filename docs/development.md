@@ -16,6 +16,7 @@ python simulator/sim.py --id TEST-01 --tag 04A2B3C4                    # OCPP 1.
 python simulator/sim.py --id TEST-02 --tag 04A2B3C4 --version 2.0.1     # OCPP 2.0.1, reports kWh
 python simulator/sim.py --id TEST-01 --password secret --stay 20        # basic auth, wait for the tag list
 python simulator/sim.py --id TEST-01 --kwh 11 --steps 10                # 11 kWh in 10 meter values
+python simulator/sim.py --id DUO-01 --connector 2                       # second connector of a Duo
 ```
 
 New stations are rejected until approved, so approve `TEST-01` in the UI first.
@@ -39,6 +40,13 @@ chargegate/              the app (HA app folder + standalone Dockerfile)
   translations/          HA option labels
 simulator/               station simulator
 docs/                    documentation
+```
+
+## MQTT locally
+
+```bash
+pip install amqtt && amqtt &                                 # small Python MQTT broker on :1883
+MQTT_ENABLED=true MQTT_HOST=127.0.0.1 ADMIN_PASSWORD=test python main.py
 ```
 
 ## Translations

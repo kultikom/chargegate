@@ -10,9 +10,27 @@ configuration:
     description: Valid tags are sent to the stations (SendLocalList) so charging keeps working during network outages.
   apply_station_config:
     name: Apply default station settings
-    description: On connect, set the meter value interval (5 min) and StopTransactionOnInvalidId (OCPP 1.6).
+    description: On connect, set meter value interval, measured values (energy + power) and StopTransactionOnInvalidId (OCPP 1.6).
   heartbeat_interval:
     name: Heartbeat interval (seconds)
+  meter_value_interval:
+    name: Meter value interval (seconds)
+    description: How often stations send meter values while charging. Shorter intervals give a smoother power reading in Home Assistant.
+  mqtt_enabled:
+    name: Publish to Home Assistant (MQTT)
+    description: Creates a device per station with status, power, energy and the current employee. Uses the Mosquitto broker app automatically.
+  employee_display:
+    name: Employee shown in Home Assistant
+    description: "name: full name, initials: e.g. M.T., hidden: no employee entity (privacy)."
+  mqtt_host:
+    name: MQTT host (optional)
+    description: Only if you don't use the Mosquitto broker app.
+  mqtt_port:
+    name: MQTT port (optional)
+  mqtt_username:
+    name: MQTT username (optional)
+  mqtt_password:
+    name: MQTT password (optional)
   log_ocpp_messages:
     name: Log OCPP messages
     description: For commissioning new station models – produces a lot of log output.

@@ -1,7 +1,7 @@
 {% extends "base.html" %}
 {% block content %}
 <h1>{{ _("Stations") }}</h1>
-<p class="sub">{{ _("OCPP address for your stations:") }} <code>ws://&lt;server&gt;:{{ ocpp_port }}/ocpp/&lt;ChargeBoxId&gt;</code></p>
+{% include "_ocpp_url.html" %}
 
 <section class="card">
   <div class="table-wrap"><table>

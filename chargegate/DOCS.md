@@ -7,8 +7,8 @@ against any station at any site; Home Assistant checks it centrally.
 
 - **Web UI:** in the Home Assistant sidebar under **ChargeGate** (administrators only).
   Sign-in is handled by Home Assistant – no separate password needed.
-- **Stations** connect to port **9000** of your Home Assistant host:
-  `ws://<home-assistant-ip>:9000/ocpp/` – the station appends its own ID.
+- **Stations** connect to port **9000** of your Home Assistant host. The *Stations* page shows the
+  exact address, e.g. `ws://192.168.1.10:9000/ocpp/` – the station appends its own ID.
 
 Give Home Assistant a fixed IP address (DHCP reservation) and allow only TCP 9000 from the
 station networks of all sites.
@@ -29,11 +29,22 @@ station networks of all sites.
 | Language | `auto` follows the browser, or force `en` / `de` |
 | Require approval for new stations | Unknown stations are rejected until approved |
 | Push tag list to stations | Valid tags are sent to the stations so charging works offline |
-| Apply default station settings | Meter values every 5 min and `StopTransactionOnInvalidId` (OCPP 1.6) |
+| Apply default station settings | Meter value interval, energy + power measurands and `StopTransactionOnInvalidId` (OCPP 1.6) |
 | Heartbeat interval | Seconds between heartbeats requested from the stations |
+| Meter value interval | How often stations send meter values while charging (default 60 s) |
+| Publish to Home Assistant (MQTT) | Creates a device per station, see below |
+| Employee shown in Home Assistant | `name`, `initials` or `hidden` |
+| MQTT host/port/user/password | Only if you don't use the Mosquitto broker app |
 | Log OCPP messages | For commissioning new station models; see the app's log tab |
 | Password for direct access | Only if you enable port 8099 under *Network* |
 | Entra settings | Import employees and tags from an Entra ID group, see below |
+
+## Home Assistant entities
+
+With the **Mosquitto broker** app and the **MQTT** integration installed, every approved station
+appears as a device with status, charging, power, energy and the employee charging. Add the
+**Energy** sensors under *Settings › Dashboards › Energy › Individual devices* to see where the
+energy goes. Details: [docs/home-assistant.md](https://github.com/kultikom/chargegate/blob/main/docs/home-assistant.md)
 
 ## Station setup
 
