@@ -34,6 +34,7 @@ station networks of all sites.
 | Meter value interval | How often stations send meter values while charging (default 60 s) |
 | Publish to Home Assistant (MQTT) | Creates a device per station, see below |
 | Employee shown in Home Assistant | `name`, `initials` or `hidden` |
+| Install the charging point dashboard | Installs the dashboard card and creates the dashboard once |
 | MQTT host/port/user/password | Only if you don't use the Mosquitto broker app |
 | Log OCPP messages | For commissioning new station models; see the app's log tab |
 | Password for direct access | Only if you enable port 8099 under *Network* |
@@ -45,6 +46,13 @@ With the **Mosquitto broker** app and the **MQTT** integration installed, every 
 appears as a device with status, charging, power, energy and the employee charging. Add the
 **Energy** sensors under *Settings › Dashboards › Energy › Individual devices* to see where the
 energy goes. Details: [docs/home-assistant.md](https://github.com/kultikom/chargegate/blob/main/docs/home-assistant.md)
+
+## Charging point dashboard
+
+The app installs the ChargeGate card and creates a dashboard **Charging points** with all stations:
+state, live power bar (learns 11 or 22 kW), session duration and employee. After the first
+installation Home Assistant may ask for one restart. Turn it off with *Install the charging point
+dashboard*.
 
 ## Station setup
 

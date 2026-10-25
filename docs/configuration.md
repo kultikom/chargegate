@@ -27,6 +27,8 @@ The Home Assistant app maps its options to the same variables.
 | `MQTT_BASE_TOPIC` | – | `chargegate` | |
 | `MQTT_DISCOVERY_PREFIX` | – | `homeassistant` | |
 | `HA_EMPLOYEE_DISPLAY` | `employee_display` | `name` | `name`, `initials` or `hidden` |
+| `HA_DASHBOARD` | `ha_dashboard` | `false` (HA: `true`) | install the dashboard card, create the dashboard once |
+| `HA_CONFIG_DIR` | – | `/homeassistant` | where HA's config folder is mounted |
 | `ENTRA_TENANT_ID` | `entra_tenant_id` | – | |
 | `ENTRA_CLIENT_ID` | `entra_client_id` | – | |
 | `ENTRA_CLIENT_SECRET` | `entra_client_secret` | – | |

@@ -179,9 +179,13 @@ class Bridge:
             def name(key: str) -> str:
                 return (prefix + NAMES[key]).strip() if multi else NAMES[key]
 
+            # The status sensor stays available while the station is offline and carries the
+            # whole connector state as attributes – the ChargeGate dashboard card reads these.
             await self._config("sensor", node, f"{c}_status", {
-                **common, "name": name("status"), "unique_id": f"{uid}_status",
-                "value_template": "{{ value_json.status }}", "icon": "mdi:ev-plug-type2"})
+                **common, "availability": [{"topic": AVAILABILITY}], "availability_mode": "all",
+                "name": name("status"), "unique_id": f"{uid}_status",
+                "value_template": "{{ value_json.status if value_json.online else 'Offline' }}",
+                "json_attributes_topic": state_topic, "icon": "mdi:ev-plug-type2"})
             await self._config("binary_sensor", node, f"{c}_charging", {
                 **common, "name": name("charging"), "unique_id": f"{uid}_charging",
                 "value_template": "{{ 'ON' if value_json.charging else 'OFF' }}",
@@ -207,12 +211,22 @@ class Bridge:
                 if show_employee else None)
 
             tx = tx_by_connector.get(c)
+            online = sid in core.connected
             state = {
+                "source": "chargegate",
+                "station": sid,
+                "station_name": st.name or st.id,
+                "site": st.site.name if st.site else None,
+                "connector": c,
+                "connectors": len(connectors),
+                "online": online,
                 "status": cs.status,
                 "charging": tx is not None,
-                "power": round(cs.power_w or 0) if tx is not None else 0,
+                "power": round(cs.power_w or 0) if tx is not None and online else 0,
+                "max_power": cs.max_power_w,
                 "energy": round(cs.energy_wh / 1000, 3) if cs.energy_wh is not None else None,
                 "session_energy": (tx.energy_kwh or 0) if tx is not None else 0,
+                "session_start": (tx.started_at.replace(microsecond=0).isoformat() + "Z") if tx is not None else None,
             }
             if show_employee:
                 state["employee"] = employee_label(

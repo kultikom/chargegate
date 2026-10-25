@@ -20,6 +20,10 @@ Runs as a **Home Assistant app** (e.g. on a Home Assistant Green) or **standalon
 - **Sessions & energy** – kWh per session and employee, filter by month/site, CSV export
 - **Home Assistant entities** – who is charging, power and energy per charging point,
   ready for the Energy dashboard (MQTT discovery, see [docs](docs/home-assistant.md))
+- **Charging point dashboard** for Home Assistant – all stations at a glance with state, live power,
+  session duration and employee, installed automatically
+
+![Dashboard](docs/images/dashboard.png)
 - **Microsoft Entra ID (optional)** – import employees and tags from a group, block leavers automatically,
   admin sign-in with Microsoft (standalone)
 - **English and German UI**

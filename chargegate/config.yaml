@@ -1,5 +1,5 @@
 name: ChargeGate
-version: "1.1.0"
+version: "1.2.0"
 slug: chargegate
 description: OCPP server for company-wide RFID charging access across multiple sites
 url: https://github.com/kultikom/chargegate
@@ -17,6 +17,11 @@ panel_title: ChargeGate
 panel_admin: true
 
 hassio_api: true          # read host IP and port mapping to show the OCPP address
+homeassistant_api: true   # register the dashboard card and create the dashboard
+map:
+  - type: homeassistant_config   # copy the dashboard card to /config/www/chargegate/
+    read_only: false
+    path: /homeassistant
 services:
   - mqtt:want             # use the Mosquitto broker app for the Home Assistant entities
 
@@ -39,6 +44,7 @@ options:
   log_ocpp_messages: false
   mqtt_enabled: true
   employee_display: name
+  ha_dashboard: true
 schema:
   language: list(auto|en|de)
   require_station_approval: bool
@@ -49,6 +55,7 @@ schema:
   log_ocpp_messages: bool
   mqtt_enabled: bool
   employee_display: list(name|initials|hidden)
+  ha_dashboard: bool
   mqtt_host: str?
   mqtt_port: port?
   mqtt_username: str?

@@ -1,5 +1,16 @@
 # Changelog
 
+## 1.2.0
+
+- **Charging point dashboard:** new Home Assistant card `custom:chargegate-card` – all stations at a
+  glance with state (offline / free / charging / connected / fault), live power bar, session duration
+  and the employee charging. Responsive grid, follows the HA theme, English/German.
+- The app installs the card, registers it as a dashboard resource and creates the dashboard
+  "Charging points" once (option *Install the charging point dashboard*)
+- The power bar learns each charging point's maximum: 11 kW, or 22 kW once more than 11.5 kW was measured
+- The status sensor carries the full connector state as attributes (session start, learned maximum,
+  station, site, online)
+
 ## 1.1.0
 
 - **Home Assistant integration via MQTT discovery:** one device per station with status, charging,

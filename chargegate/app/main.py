@@ -6,6 +6,7 @@ import uvicorn
 
 import config
 import ha_mqtt
+import ha_setup
 from db import init_db
 from ocpp_server import ocpp_app
 from web import web_app
@@ -29,6 +30,8 @@ async def main():
                      ", direct access with password" if config.ADMIN_PASSWORD else "")
     elif not config.ENTRA_LOGIN_ENABLED:
         logging.warning("Entra login not configured – local admin login active")
+    if ha_setup.start():
+        logging.info("Setting up the ChargeGate dashboard in Home Assistant")
     if ha_mqtt.start():
         logging.info("Home Assistant via MQTT: %s:%s", config.MQTT_HOST, config.MQTT_PORT)
     await asyncio.gather(*(s.serve() for s in servers))

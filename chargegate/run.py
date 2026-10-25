@@ -106,6 +106,7 @@ def main() -> None:
         "HEARTBEAT_INTERVAL": str(o.get("heartbeat_interval", 300)),
         "LOG_OCPP_MESSAGES": str(o.get("log_ocpp_messages", False)),
         "HA_EMPLOYEE_DISPLAY": o.get("employee_display", "name"),
+        "HA_DASHBOARD": str(o.get("ha_dashboard", True)),
         "ENTRA_TENANT_ID": o.get("entra_tenant_id") or "",
         "ENTRA_CLIENT_ID": o.get("entra_client_id") or "",
         "ENTRA_CLIENT_SECRET": o.get("entra_client_secret") or "",

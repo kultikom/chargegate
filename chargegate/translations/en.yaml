@@ -22,6 +22,9 @@ configuration:
   employee_display:
     name: Employee shown in Home Assistant
     description: "name: full name, initials: e.g. M.T., hidden: no employee entity (privacy)."
+  ha_dashboard:
+    name: Install the charging point dashboard
+    description: Installs the ChargeGate card and creates the dashboard "Charging points" once (you can delete or edit it).
   mqtt_host:
     name: MQTT host (optional)
     description: Only if you don't use the Mosquitto broker app.

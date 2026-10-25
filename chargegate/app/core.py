@@ -127,6 +127,8 @@ async def record_meter(station_id: str, connector_id: int | None, energy_wh: flo
             cs.energy_wh = energy_wh
         if power_w is not None:
             cs.power_w = power_w
+            if power_w > (cs.peak_power_w or 0):
+                cs.peak_power_w = power_w
         await s.commit()
     notify(station_id)
 

@@ -23,7 +23,7 @@ Per connector (prefixed with "Connector N" on stations with several connectors, 
 
 | Entity | Type | Unit | Notes |
 |---|---|---|---|
-| Status | sensor | | Available, Charging, Faulted, … |
+| Status | sensor | | Available, Charging, Faulted, …, `Offline` – stays available while the station is offline and carries the full connector state as attributes |
 | Charging | binary sensor | | a session is running |
 | Power | sensor | W | needs `Power.Active.Import` in the meter values (set automatically for OCPP 1.6) |
 | Energy | sensor | kWh | the station's energy register – `total_increasing` |
@@ -31,6 +31,38 @@ Per connector (prefixed with "Connector N" on stations with several connectors, 
 | Employee | sensor | | who is charging – see *Privacy* |
 
 On the **ChargeGate** hub device: *Running sessions* and *Stations online*.
+
+## Charging point dashboard
+
+![Charging point dashboard](images/dashboard.png)
+
+The card `custom:chargegate-card` shows every charging point with
+
+- **state:** offline, free, charging, connected (session running but no power flowing, e.g. car full), fault
+- **live power** as a bar, scaled to the charging point's maximum – learned automatically: 11 kW,
+  or 22 kW as soon as more than 11.5 kW was measured once (stored, survives restarts)
+- **session duration**, counting live
+- **employee** charging (respecting the privacy option below)
+
+**Home Assistant app:** with *Install the charging point dashboard* enabled (default), ChargeGate copies
+the card to `/config/www/chargegate/`, registers it as a dashboard resource and creates the dashboard
+**Charging points** once. If the `www` folder did not exist before, Home Assistant shows a notification
+asking for one restart. The dashboard is yours afterwards – edit or delete it, it won't be recreated.
+
+**Standalone / manual:** copy `chargegate/app/static/chargegate-card.js` to `/config/www/chargegate/`,
+add `/local/chargegate/chargegate-card.js` as a *JavaScript module* under
+*Settings › Dashboards › ⋮ › Resources*, then add the card:
+
+```yaml
+type: custom:chargegate-card
+title: Charging points        # optional
+site: Head office             # optional: only stations of this site
+stations: [DUO-01, EVE-01]    # optional: only these station IDs, in this order
+columns: 2                    # optional: fixed number of columns (default: responsive)
+show_employee: true           # optional
+```
+
+For a full-screen view (e.g. a wall tablet) put it into a view of type **Panel**.
 
 ## Energy dashboard
 

@@ -64,6 +64,17 @@ class ConnectorStatus(Base):
     updated: Mapped[datetime] = mapped_column(DateTime, default=utcnow)
     energy_wh: Mapped[float | None] = mapped_column(Float)   # last energy register reading
     power_w: Mapped[float | None] = mapped_column(Float)     # last active power reading
+    peak_power_w: Mapped[float | None] = mapped_column(Float)  # highest power ever seen (learns 11/22 kW)
+
+    @property
+    def max_power_w(self) -> int:
+        """Learned rating of the charging point: 11 kW unless more was ever measured."""
+        peak = self.peak_power_w or 0
+        if peak <= 11_500:
+            return 11_000
+        if peak <= 22_500:
+            return 22_000
+        return int(-(-peak // 1000) * 1000)   # above 22 kW: round up to the next kW
 
 
 class Employee(Base):

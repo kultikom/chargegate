@@ -22,6 +22,9 @@ configuration:
   employee_display:
     name: Anzeige des Mitarbeiters in Home Assistant
     description: "name: voller Name, initials: z. B. M.T., hidden: keine Mitarbeiter-Entität (Datenschutz)."
+  ha_dashboard:
+    name: Ladepunkt-Ansicht einrichten
+    description: Installiert die ChargeGate-Karte und legt einmalig das Dashboard „Ladepunkte“ an (darf gelöscht oder angepasst werden).
   mqtt_host:
     name: MQTT-Host (optional)
     description: Nur nötig, wenn ihr nicht die Mosquitto-Broker-App nutzt.
