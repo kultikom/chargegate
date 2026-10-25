@@ -1,0 +1,37 @@
+configuration:
+  language:
+    name: Language
+    description: Language of the web UI. "auto" follows the browser.
+  require_station_approval:
+    name: Require approval for new stations
+    description: Unknown stations are rejected until they are approved in the web UI.
+  local_list_enabled:
+    name: Push tag list to stations
+    description: Valid tags are sent to the stations (SendLocalList) so charging keeps working during network outages.
+  apply_station_config:
+    name: Apply default station settings
+    description: On connect, set the meter value interval (5 min) and StopTransactionOnInvalidId (OCPP 1.6).
+  heartbeat_interval:
+    name: Heartbeat interval (seconds)
+  log_ocpp_messages:
+    name: Log OCPP messages
+    description: For commissioning new station models – produces a lot of log output.
+  admin_password:
+    name: Password for direct access
+    description: Only needed if port 8099 is enabled. Empty = access via the HA sidebar only.
+  entra_tenant_id:
+    name: Entra tenant ID
+  entra_client_id:
+    name: Entra client ID
+  entra_client_secret:
+    name: Entra client secret
+  entra_sync_group_id:
+    name: Entra group (object ID) of employees allowed to charge
+  entra_rfid_attribute:
+    name: Entra attribute holding the tag UID
+    description: Default extensionAttribute10; separate multiple UIDs with commas.
+  entra_sync_interval_min:
+    name: Sync interval (minutes)
+network:
+  9000/tcp: OCPP – charging stations connect here
+  8099/tcp: Web UI direct access (optional)

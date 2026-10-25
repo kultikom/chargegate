@@ -1,0 +1,72 @@
+{% extends "base.html" %}
+{% block content %}
+<h1>{{ _("Overview") }}</h1>
+<p class="sub">{{ _("{online} of {total} stations online · {running} sessions running", online=online|length, total=stations|length, running=running|length) }}</p>
+
+{% if pending %}
+<div class="notice">{{ _("{n} new station(s) connected and are waiting for approval.", n=pending) }} <a href="{{ base }}/stations">{{ _("Review now →") }}</a></div>
+{% endif %}
+
+<section>
+  {% if not stations %}
+    <div class="card empty">{{ _("No approved stations yet. Point a station to") }}
+      <code>ws://&lt;server&gt;:{{ ocpp_port }}/ocpp/</code> – {{ _("it will then appear under “Stations”.") }}</div>
+  {% endif %}
+  {% for site, group in stations|groupby('site_id', default=0) %}
+    <h2>{{ group[0].site.name if group[0].site else _('No site') }}</h2>
+    <div class="grid" style="margin-bottom:20px">
+      {% for st in group %}
+      <div class="card station">
+        <div class="top">
+          <div>
+            <div class="name"><span class="dot {{ 'on' if st.id in online }}"></span>{{ st.name or st.id }}</div>
+            <div class="meta">{{ st.vendor or '' }} {{ st.model or '' }} · OCPP {{ st.ocpp_version or '?' }}</div>
+          </div>
+          <span class="pill {{ 'ok' if st.id in online }}">{{ _('online') if st.id in online else _('offline') }}</span>
+        </div>
+        <div class="tags">
+          {% for c in st.connectors if c.connector_id > 0 %}
+            <span class="pill {{ c.status }}" title="{{ c.error_code or '' }}">#{{ c.connector_id }} {{ c.status }}</span>
+          {% else %}<span class="meta">{{ _("no status yet") }}</span>{% endfor %}
+        </div>
+        <div class="meta">{{ _("last seen") }} {{ st.last_seen|ago }}</div>
+      </div>
+      {% endfor %}
+    </div>
+  {% endfor %}
+</section>
+
+<div class="cols">
+  <section class="card">
+    <h2>{{ _("Running sessions") }}</h2>
+    {% if running %}
+    <div class="table-wrap"><table>
+      <tr><th>{{ _("Employee") }}</th><th>{{ _("Station") }}</th><th>{{ _("Since") }}</th><th class="num">{{ _("So far") }}</th></tr>
+      {% for t in running %}
+      <tr>
+        <td>{{ t.employee.name if t.employee else (t.tag_uid or '–') }}</td>
+        <td>{{ t.station.name or t.station_id }}</td>
+        <td>{{ t.started_at|local('time') }}</td>
+        <td class="num">{{ t.energy_kwh|kwh }}</td>
+      </tr>
+      {% endfor %}
+    </table></div>
+    {% else %}<div class="empty">{{ _("Nobody is charging right now.") }}</div>{% endif %}
+  </section>
+
+  <section class="card">
+    <h2>{{ _("Recent authorizations") }}</h2>
+    {% if events %}
+    <div class="table-wrap"><table>
+      {% for e in events %}
+      <tr>
+        <td class="muted">{{ e.ts|local('short') }}</td>
+        <td>{{ e.employee.name if e.employee else e.tag_uid }}</td>
+        <td><span class="pill {{ e.result }}">{{ e.result|result }}</span></td>
+      </tr>
+      {% endfor %}
+    </table></div>
+    {% else %}<div class="empty">{{ _("No tags read yet.") }}</div>{% endif %}
+  </section>
+</div>
+{% endblock %}

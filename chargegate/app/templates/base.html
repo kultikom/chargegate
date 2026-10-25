@@ -1,0 +1,37 @@
+<!doctype html>
+<html lang="{{ lang }}">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{% block title %}ChargeGate{% endblock %}</title>
+  <link rel="stylesheet" href="{{ base }}/static/style.css">
+</head>
+<body>
+{% if user %}
+<header>
+  <div class="bar">
+    <a class="brand" href="{{ base }}/">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M13 2 4 14h7l-1 8 9-12h-7z"/></svg>
+      ChargeGate
+    </a>
+    <nav>
+      <a href="{{ base }}/" class="{{ 'on' if path == '/' }}">{{ _("Overview") }}</a>
+      <a href="{{ base }}/stations" class="{{ 'on' if path.startswith('/stations') }}">{{ _("Stations") }}</a>
+      <a href="{{ base }}/employees" class="{{ 'on' if path.startswith('/employees') }}">{{ _("Employees & tags") }}</a>
+      <a href="{{ base }}/transactions" class="{{ 'on' if path.startswith('/transactions') }}">{{ _("Sessions") }}</a>
+      <a href="{{ base }}/log" class="{{ 'on' if path.startswith('/log') }}">{{ _("Log") }}</a>
+    </nav>
+    <span class="who">{{ user }}{% if not via_ingress %} · <a href="{{ base }}/logout">{{ _("Sign out") }}</a>{% endif %}</span>
+  </div>
+</header>
+{% endif %}
+<main>
+  {% for kind, msg in flashes %}<div class="flash {{ kind }}">{{ msg }}</div>{% endfor %}
+  {% block content %}{% endblock %}
+</main>
+<footer class="foot">
+  ChargeGate {{ version }} ·
+  {% if lang == 'de' %}<a href="{{ base }}/lang/en">English</a>{% else %}<a href="{{ base }}/lang/de">Deutsch</a>{% endif %}
+</footer>
+</body>
+</html>

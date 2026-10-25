@@ -1,0 +1,91 @@
+{% extends "base.html" %}
+{% block content %}
+<h1>{{ _("Stations") }}</h1>
+<p class="sub">{{ _("OCPP address for your stations:") }} <code>ws://&lt;server&gt;:{{ ocpp_port }}/ocpp/&lt;ChargeBoxId&gt;</code></p>
+
+<section class="card">
+  <div class="table-wrap"><table>
+    <tr><th>ID</th><th>{{ _("Name / site") }}</th><th>{{ _("Device") }}</th><th>{{ _("Status") }}</th><th>{{ _("Last seen") }}</th><th></th></tr>
+    {% for st in stations %}
+    <tr>
+      <td class="mono"><span class="dot {{ 'on' if st.id in online }}"></span>{{ st.id }}</td>
+      <td>{{ st.name or '–' }}<br><span class="muted">{{ st.site.name if st.site else _('no site') }}</span></td>
+      <td class="muted">{{ st.vendor or '' }} {{ st.model or '' }}<br>
+        {% if st.ocpp_version %}OCPP {{ st.ocpp_version }}{% endif %} {% if st.firmware %}· FW {{ st.firmware }}{% endif %}</td>
+      <td>
+        {% if not st.approved %}<span class="pill warn">{{ _("waiting for approval") }}</span>
+        {% elif st.id in online %}<span class="pill ok">{{ _("online") }}</span>
+        {% else %}<span class="pill">{{ _("offline") }}</span>{% endif %}
+        {% if st.password_hash %}<span class="pill" title="{{ _('Basic auth enabled') }}">🔒</span>{% endif %}
+        {% if st.local_list_status %}<br><span class="muted" style="font-size:12px" title="{{ st.local_list_pushed|local }}">{{ _("Tag list:") }} {{ st.local_list_status|list_status }}</span>{% endif %}
+      </td>
+      <td class="muted">{{ st.last_seen|ago }}<br><span class="mono">{{ st.remote_addr or '' }}</span></td>
+      <td>
+        <details>
+          <summary>{{ _("Approve") if not st.approved else _("Edit") }}</summary>
+          <form method="post" action="{{ base }}/stations/save">
+            <input type="hidden" name="id" value="{{ st.id }}">
+            <div class="row">
+              <div><label>{{ _("Name") }}</label><input name="name" value="{{ st.name or '' }}" placeholder="{{ _('e.g. North car park 1') }}"></div>
+              <div><label>{{ _("Site") }}</label>
+                <select name="site_id"><option value="">–</option>
+                  {% for s in sites %}<option value="{{ s.id }}" {{ 'selected' if s.id == st.site_id }}>{{ s.name }}</option>{% endfor %}
+                </select></div>
+              <div><label>{{ _("New basic auth password") }}</label><input name="password" type="password" autocomplete="new-password" placeholder="{{ _('unchanged') if st.password_hash else _('optional') }}"></div>
+            </div>
+            <p>
+              <label style="display:inline"><input type="checkbox" name="approved" value="1" checked> {{ _("approved") }}</label>
+              {% if st.password_hash %}&nbsp; <label style="display:inline"><input type="checkbox" name="clear_password" value="1"> {{ _("remove password") }}</label>{% endif %}
+            </p>
+            <button>{{ _("Save") }}</button>
+          </form>
+          {% if st.id in online %}<form method="post" action="{{ base }}/stations/{{ st.id }}/push" class="inline">
+            <button class="ghost" style="margin-top:8px">{{ _("Send tag list now") }}</button></form>{% endif %}
+          <form method="post" action="{{ base }}/stations/{{ st.id }}/delete" class="inline" onsubmit="return confirm('{{ _('Delete station? Its sessions will be deleted as well.') }}')">
+            <button class="ghost danger" style="margin-top:8px">{{ _("Delete") }}</button>
+          </form>
+        </details>
+      </td>
+    </tr>
+    {% else %}
+    <tr><td colspan="6" class="empty">{{ _("No stations yet. Point a station to this server or add one manually below.") }}</td></tr>
+    {% endfor %}
+  </table></div>
+</section>
+
+<div class="cols">
+  <section class="card">
+    <h2>{{ _("Add station manually") }}</h2>
+    <form method="post" action="{{ base }}/stations/save">
+      <div class="row">
+        <div><label>ChargeBox ID</label><input name="id" required placeholder="{{ _('as configured in the station') }}"></div>
+        <div><label>{{ _("Name") }}</label><input name="name"></div>
+      </div>
+      <div class="row" style="margin-top:8px">
+        <div><label>{{ _("Site") }}</label>
+          <select name="site_id"><option value="">–</option>
+            {% for s in sites %}<option value="{{ s.id }}">{{ s.name }}</option>{% endfor %}
+          </select></div>
+        <div><label>{{ _("Basic auth password") }}</label><input name="password" type="password" autocomplete="new-password" placeholder="{{ _('optional') }}"></div>
+      </div>
+      <input type="hidden" name="approved" value="1">
+      <p><button>{{ _("Add") }}</button></p>
+    </form>
+  </section>
+
+  <section class="card">
+    <h2>{{ _("Sites") }}</h2>
+    {% for s in sites %}
+      <div class="row" style="align-items:center;margin-bottom:6px">
+        <div>{{ s.name }}</div>
+        <form method="post" action="{{ base }}/sites/{{ s.id }}/delete" class="inline" style="flex:0" onsubmit="return confirm('{{ _('Delete site?') }}')">
+          <button class="ghost danger">{{ _("Remove") }}</button></form>
+      </div>
+    {% else %}<div class="empty">{{ _("No sites yet.") }}</div>{% endfor %}
+    <form method="post" action="{{ base }}/sites/add" class="row" style="margin-top:12px">
+      <div><input name="name" required placeholder="{{ _('e.g. Head office') }}"></div>
+      <button style="flex:0">{{ _("Add") }}</button>
+    </form>
+  </section>
+</div>
+{% endblock %}

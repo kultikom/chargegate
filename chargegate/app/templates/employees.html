@@ -1,0 +1,99 @@
+{% extends "base.html" %}
+{% block content %}
+<h1>{{ _("Employees & tags") }}</h1>
+<p class="sub">{{ _("An active tag of an active employee works at every site.") }}</p>
+
+{% if unknown %}
+<section class="card">
+  <h2>{{ _("Unknown tags (last 30 days)") }}</h2>
+  <p class="muted" style="margin-top:-6px">{{ _("Simply hold a new tag against any station – it shows up here and can be assigned right away.") }}</p>
+  <div class="table-wrap"><table>
+    <tr><th>UID</th><th>{{ _("Last seen") }}</th><th>{{ _("Attempts") }}</th><th>{{ _("Assign") }}</th></tr>
+    {% for uid, ts, cnt, station in unknown %}
+    <tr>
+      <td class="mono">{{ uid }}</td>
+      <td class="muted">{{ ts|local }}<br>{{ station }}</td>
+      <td class="num">{{ cnt }}</td>
+      <td>
+        <form method="post" action="{{ base }}/tags/add" class="row">
+          <input type="hidden" name="uid" value="{{ uid }}">
+          <div><select name="employee_id"><option value="">{{ _("– new employee –") }}</option>
+            {% for e in all_emps %}<option value="{{ e.id }}">{{ e.name }}</option>{% endfor %}</select></div>
+          <div><input name="new_name" placeholder="{{ _('Name (if new)') }}"></div>
+          <button style="flex:0">{{ _("Assign") }}</button>
+        </form>
+      </td>
+    </tr>
+    {% endfor %}
+  </table></div>
+</section>
+{% endif %}
+
+<section class="card">
+  <form method="get" class="row" style="margin-bottom:12px">
+    <div><input name="q" value="{{ q }}" placeholder="{{ _('Search by name, email or tag UID') }}"></div>
+    <button style="flex:0">{{ _("Search") }}</button>
+  </form>
+  <div class="table-wrap"><table>
+    <tr><th>{{ _("Name") }}</th><th>{{ _("Tags") }}</th><th>{{ _("Source") }}</th><th></th></tr>
+    {% for e in employees %}
+    <tr class="{{ '' if e.active else 'inactive' }}">
+      <td><strong>{{ e.name }}</strong>{% if not e.active %} <span class="pill warn">{{ _("deactivated") }}</span>{% endif %}
+        <br><span class="muted">{{ e.email or '' }}</span></td>
+      <td>
+        <div class="tags">
+        {% for t in e.tags %}
+          <span class="tag {{ '' if t.active else 'off' }}" title="{{ t.label or '' }}">
+            <span class="mono">{{ t.uid }}</span>
+            <form method="post" action="{{ base }}/tags/{{ t.id }}/toggle" class="inline"><button title="{{ _('block') if t.active else _('unblock') }}">{{ '⏸' if t.active else '▶' }}</button></form>
+            {% if t.source != 'entra' %}<form method="post" action="{{ base }}/tags/{{ t.id }}/delete" class="inline" onsubmit="return confirm('{{ _('Delete tag?') }}')"><button title="{{ _('delete') }}">✕</button></form>{% endif %}
+          </span>
+        {% else %}<span class="muted">{{ _("no tag") }}</span>{% endfor %}
+        </div>
+        <details style="margin-top:6px"><summary style="font-size:13px">{{ _("+ Tag") }}</summary>
+          <form method="post" action="{{ base }}/tags/add" class="row">
+            <input type="hidden" name="employee_id" value="{{ e.id }}">
+            <div><input name="uid" required placeholder="{{ _('UID, e.g. 04A2B3C4D5') }}"></div>
+            <div><input name="label" placeholder="{{ _('Label (optional)') }}"></div>
+            <button style="flex:0">{{ _("Add") }}</button>
+          </form>
+        </details>
+      </td>
+      <td><span class="pill">{{ _(e.source) }}</span></td>
+      <td style="white-space:nowrap">
+        <form method="post" action="{{ base }}/employees/{{ e.id }}/toggle" class="inline"><button class="ghost">{{ _("Deactivate") if e.active else _("Activate") }}</button></form>
+        <form method="post" action="{{ base }}/employees/{{ e.id }}/delete" class="inline" onsubmit="return confirm('{{ _('Delete employee?') }}')"><button class="ghost danger">{{ _("Delete") }}</button></form>
+      </td>
+    </tr>
+    {% else %}
+    <tr><td colspan="4" class="empty">{{ _("No employees found.") }}</td></tr>
+    {% endfor %}
+  </table></div>
+</section>
+
+<div class="cols">
+  <section class="card">
+    <h2>{{ _("Add employee manually") }}</h2>
+    <form method="post" action="{{ base }}/employees/add">
+      <div class="row">
+        <div><label>{{ _("Name") }}</label><input name="name" required></div>
+        <div><label>{{ _("Email") }}</label><input name="email" type="email"></div>
+        <div><label>{{ _("Tag UID") }}</label><input name="uid" placeholder="{{ _('optional') }}"></div>
+      </div>
+      <p><button>{{ _("Add") }}</button></p>
+    </form>
+  </section>
+
+  <section class="card">
+    <h2>Entra ID</h2>
+    {% if entra_sync %}
+      <p>{{ _("Employees and tags are imported from the Entra group. Tag UIDs are read from the attribute") }} <code>{{ rfid_attr }}</code>.</p>
+      {% if sync %}<p class="muted">{{ _("Last run") }} {{ sync.last_run|local }}:
+        <span class="pill {{ 'ok' if sync.ok else 'err' }}">{{ _('ok') if sync.ok else _('error') }}</span><br>{{ sync.message|sync_summary }}</p>{% endif %}
+      <form method="post" action="{{ base }}/sync"><button>{{ _("Sync now") }}</button></form>
+    {% else %}
+      <p class="muted">{{ _("Not configured. Add the Entra settings to import employees from a group automatically and block them when they leave.") }}</p>
+    {% endif %}
+  </section>
+</div>
+{% endblock %}

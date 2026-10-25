@@ -1,0 +1,12 @@
+# Standalone image (Docker / docker compose) – configured via environment variables
+FROM python:3.12-slim
+ENV PYTHONUNBUFFERED=1 PYTHONDONTWRITEBYTECODE=1
+WORKDIR /app
+COPY app/requirements.txt .
+RUN pip install --no-cache-dir -r requirements.txt
+COPY app/ .
+RUN useradd -r -u 1000 chargegate && mkdir -p /data && chown -R chargegate /app /data
+USER chargegate
+EXPOSE 9000 8080
+HEALTHCHECK --interval=30s --timeout=5s CMD python -c "import urllib.request;urllib.request.urlopen('http://localhost:8080/health')"
+CMD ["python", "main.py"]

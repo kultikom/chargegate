@@ -1,0 +1,176 @@
+"""Minimal translation layer. English is the source language, German the first translation.
+
+To add a language: add its code to LANGUAGES and a dictionary to CATALOGS.
+"""
+from __future__ import annotations
+
+from contextvars import ContextVar
+from http.cookies import SimpleCookie
+
+import config
+
+LANGUAGES = ("en", "de")
+_lang: ContextVar[str] = ContextVar("lang", default="en")
+
+
+def set_language(code: str) -> None:
+    _lang.set(code if code in LANGUAGES else "en")
+
+
+def current() -> str:
+    return _lang.get()
+
+
+def pick_language(cookie_header: str, accept_language: str) -> str:
+    """Cookie (language switch in the footer) > configured language > browser language."""
+    try:
+        c = SimpleCookie(cookie_header)
+        if "lang" in c and c["lang"].value in LANGUAGES:
+            return c["lang"].value
+    except Exception:  # noqa: BLE001
+        pass
+    if config.LANGUAGE in LANGUAGES:
+        return config.LANGUAGE
+    for part in accept_language.split(","):
+        code = part.split(";")[0].strip().lower()[:2]
+        if code in LANGUAGES:
+            return code
+    return "en"
+
+
+def t(msg: str, **kw) -> str:
+    text = CATALOGS.get(current(), {}).get(msg, msg)
+    return text.format(**kw) if kw else text
+
+
+def number(value: float, digits: int) -> str:
+    s = f"{value:.{digits}f}"
+    return s.replace(".", ",") if current() == "de" else s
+
+
+_DATE = {
+    "en": {"full": "%Y-%m-%d %H:%M", "short": "%m-%d %H:%M", "time": "%H:%M", "seconds": "%Y-%m-%d %H:%M:%S"},
+    "de": {"full": "%d.%m.%Y %H:%M", "short": "%d.%m. %H:%M", "time": "%H:%M", "seconds": "%d.%m.%Y %H:%M:%S"},
+}
+
+
+def date_format(kind: str) -> str:
+    return _DATE[current()].get(kind, kind)
+
+
+RESULTS = {"Accepted": "accepted", "Blocked": "blocked", "Invalid": "unknown"}
+REASONS = {
+    "unknown_tag": "unknown tag",
+    "tag_blocked": "tag blocked",
+    "employee_inactive": "employee deactivated",
+    "reversed_byte_order": "UID matched in reversed byte order",
+}
+
+
+def result_label(result: str | None) -> str:
+    return t(RESULTS.get(result or "", result or ""))
+
+
+def reason_label(reason: str | None) -> str:
+    return t(REASONS.get(reason, reason)) if reason else ""
+
+
+DE = {
+    # navigation & general
+    "Overview": "Übersicht", "Stations": "Stationen", "Employees & tags": "Mitarbeiter & Chips",
+    "Sessions": "Ladevorgänge", "Log": "Protokoll", "Sign out": "Abmelden",
+    "Add": "Hinzufügen", "Save": "Speichern", "Delete": "Löschen", "delete": "löschen",
+    "Remove": "Entfernen", "Edit": "Bearbeiten", "Search": "Suchen", "Show": "Anzeigen",
+    "Name": "Name", "Email": "E-Mail", "optional": "optional", "all": "alle",
+    "ok": "ok", "error": "Fehler", "online": "online", "offline": "offline",
+    "never": "nie", "just now": "gerade eben", "{n} min ago": "vor {n} Min.",
+    "{n} h ago": "vor {n} Std.", "{n} days ago": "vor {n} Tagen",
+    "manual": "manuell", "entra": "Entra",
+    # login
+    "RFID access for your charging stations": "RFID-Freigabe für eure Ladestationen",
+    "Sign in with Microsoft": "Mit Microsoft anmelden", "Admin password": "Admin-Passwort",
+    "Sign in": "Anmelden", "Wrong password": "Passwort falsch",
+    "Local login – Entra ID is not configured.": "Lokaler Login – Entra ID ist nicht konfiguriert.",
+    "Direct access is disabled. Please open the interface from the Home Assistant sidebar.":
+        "Der direkte Zugriff ist deaktiviert. Bitte die Oberfläche über die Home-Assistant-Seitenleiste öffnen.",
+    "{email} is not an authorized admin.": "{email} ist nicht als Admin freigeschaltet.",
+    # overview
+    "{online} of {total} stations online · {running} sessions running":
+        "{online} von {total} Stationen online · {running} Ladevorgänge laufen",
+    "{n} new station(s) connected and are waiting for approval.":
+        "{n} neue Station(en) haben sich gemeldet und warten auf Freigabe.",
+    "Review now →": "Jetzt prüfen →",
+    "No approved stations yet. Point a station to": "Noch keine Stationen freigegeben. Trag in der Wallbox",
+    "it will then appear under “Stations”.": "ein – sie erscheint dann unter „Stationen“.",
+    "No site": "Ohne Standort", "no status yet": "noch kein Status", "last seen": "zuletzt gesehen",
+    "Running sessions": "Laufende Ladevorgänge", "Employee": "Mitarbeiter", "Station": "Station",
+    "Since": "Seit", "So far": "Bisher", "Nobody is charging right now.": "Gerade lädt niemand.",
+    "Recent authorizations": "Letzte Anmeldungen", "No tags read yet.": "Noch keine Chips gelesen.",
+    # stations
+    "OCPP address for your stations:": "OCPP-Adresse für die Wallboxen:",
+    "Name / site": "Name / Standort", "Device": "Gerät", "Status": "Status", "Last seen": "Zuletzt",
+    "no site": "kein Standort", "waiting for approval": "wartet auf Freigabe",
+    "Basic auth enabled": "Basic Auth aktiv", "Tag list:": "Chip-Liste:",
+    "Approve": "Freigeben", "Site": "Standort", "e.g. North car park 1": "z. B. Parkplatz Nord 1",
+    "New basic auth password": "Neues Basic-Auth-Passwort", "unchanged": "unverändert",
+    "approved": "freigegeben", "remove password": "Passwort entfernen",
+    "Send tag list now": "Chip-Liste jetzt senden",
+    "Delete station? Its sessions will be deleted as well.":
+        "Station löschen? Ihre Ladevorgänge werden mitgelöscht.",
+    "No stations yet. Point a station to this server or add one manually below.":
+        "Noch keine Station. Wallbox auf diesen Server zeigen lassen oder unten manuell anlegen.",
+    "Add station manually": "Station manuell anlegen", "as configured in the station": "wie in der Wallbox",
+    "Basic auth password": "Basic-Auth-Passwort", "Sites": "Standorte", "Delete site?": "Standort löschen?",
+    "No sites yet.": "Noch keine Standorte.", "e.g. Head office": "z. B. Zentrale",
+    "Station {id} saved": "Station {id} gespeichert", "Station {id} deleted": "Station {id} gelöscht",
+    "Tag list to {id}: {status}": "Chip-Liste an {id}: {status}",
+    "Site {name} added": "Standort {name} angelegt", "Site already exists": "Standort existiert bereits",
+    "ok ({n} tags)": "ok ({n} Chips)", "error: {msg}": "Fehler: {msg}",
+    # employees
+    "An active tag of an active employee works at every site.":
+        "Ein aktiver Chip eines aktiven Mitarbeiters gilt an allen Standorten.",
+    "Unknown tags (last 30 days)": "Unbekannte Chips (letzte 30 Tage)",
+    "Simply hold a new tag against any station – it shows up here and can be assigned right away.":
+        "Neuen Chip einfach an eine Wallbox halten – er erscheint hier und kann direkt zugeordnet werden.",
+    "Attempts": "Versuche", "Assign": "Zuordnen", "– new employee –": "– neuer Mitarbeiter –",
+    "Name (if new)": "Name (falls neu)", "Search by name, email or tag UID": "Suche nach Name, E-Mail oder Chip-UID",
+    "Tags": "Chips", "Tag": "Chip", "Source": "Quelle", "deactivated": "deaktiviert",
+    "block": "sperren", "unblock": "entsperren", "Delete tag?": "Chip löschen?", "no tag": "kein Chip",
+    "+ Tag": "+ Chip", "UID, e.g. 04A2B3C4D5": "UID, z. B. 04A2B3C4D5", "Label (optional)": "Bezeichnung (optional)",
+    "Deactivate": "Deaktivieren", "Activate": "Aktivieren", "Delete employee?": "Mitarbeiter löschen?",
+    "No employees found.": "Keine Mitarbeiter gefunden.", "Add employee manually": "Mitarbeiter manuell anlegen",
+    "Tag UID": "Chip-UID",
+    "Employees and tags are imported from the Entra group. Tag UIDs are read from the attribute":
+        "Mitarbeiter und Chips werden aus der Entra-Gruppe übernommen. Chip-UIDs stehen im Attribut",
+    "Last run": "Letzter Lauf", "Sync now": "Jetzt synchronisieren",
+    "Not configured. Add the Entra settings to import employees from a group automatically and block them when they leave.":
+        "Nicht konfiguriert. Mit den Entra-Einstellungen werden Mitarbeiter automatisch aus einer Gruppe übernommen und beim Austritt gesperrt.",
+    "{name} added": "{name} angelegt",
+    "This tag is already assigned to another employee": "Dieser Chip ist bereits einem anderen Mitarbeiter zugeordnet",
+    "This tag is already assigned": "Dieser Chip ist bereits zugeordnet",
+    "Note: employees from Entra are overwritten by the next sync":
+        "Hinweis: Entra-Mitarbeiter werden beim nächsten Sync überschrieben",
+    "Please select an employee or enter a name": "Bitte Mitarbeiter wählen oder Namen eingeben",
+    "Employee not found": "Mitarbeiter nicht gefunden", "Tag {uid} → {name}": "Chip {uid} → {name}",
+    "Entra sync is not configured": "Entra-Sync ist nicht konfiguriert",
+    "{users} users: {created} new, {updated} updated, {deactivated} deactivated; tags +{tags_added}/-{tags_removed}":
+        "{users} Benutzer: {created} neu, {updated} aktualisiert, {deactivated} deaktiviert; Chips +{tags_added}/-{tags_removed}",
+    "conflicts (tag already belongs to someone else): {list}":
+        "Konflikte (Chip gehört schon jemand anderem): {list}",
+    # sessions
+    "Month": "Monat", "CSV export": "CSV-Export", "Total energy": "Energie gesamt",
+    "By employee": "Nach Mitarbeiter", "Start": "Start", "End": "Ende", "Energy": "Energie",
+    "Reason": "Grund", "running": "läuft", "No sessions in this period.": "Keine Ladevorgänge in diesem Zeitraum.",
+    "Connector": "Anschluss", "Meter start (Wh)": "Zähler Start (Wh)", "Meter end (Wh)": "Zähler Ende (Wh)",
+    "Stop reason": "Stoppgrund", "kWh": "kWh",
+    # log
+    "Every tag check at a station (latest 300)": "Jede Chip-Prüfung an einer Wallbox (letzte 300)",
+    "all results": "alle Ergebnisse", "Time": "Zeit", "Result": "Ergebnis", "Note": "Hinweis",
+    "No entries yet.": "Noch keine Einträge.",
+    "accepted": "akzeptiert", "blocked": "gesperrt", "unknown": "unbekannt",
+    "unknown tag": "Chip unbekannt", "tag blocked": "Chip gesperrt",
+    "employee deactivated": "Mitarbeiter deaktiviert",
+    "UID matched in reversed byte order": "UID in umgekehrter Byte-Reihenfolge erkannt",
+}
+
+CATALOGS = {"de": DE}

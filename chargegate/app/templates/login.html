@@ -1,0 +1,20 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="card login">
+  <h1>ChargeGate</h1>
+  <p class="sub">{{ _("RFID access for your charging stations") }}</p>
+  {% if entra_login %}
+    <a class="btn" href="{{ base }}/auth/login" style="width:100%;text-align:center">{{ _("Sign in with Microsoft") }}</a>
+  {% elif not local_login %}
+    <p>{{ _("Direct access is disabled. Please open the interface from the Home Assistant sidebar.") }}</p>
+  {% else %}
+    <form method="post" action="{{ base }}/login">
+      <label for="pw">{{ _("Admin password") }}</label>
+      <input id="pw" type="password" name="password" autofocus required>
+      <p></p>
+      <button style="width:100%">{{ _("Sign in") }}</button>
+    </form>
+    <p class="muted" style="font-size:13px">{{ _("Local login – Entra ID is not configured.") }}</p>
+  {% endif %}
+</div>
+{% endblock %}

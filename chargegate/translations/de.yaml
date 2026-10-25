@@ -1,0 +1,37 @@
+configuration:
+  language:
+    name: Sprache
+    description: Sprache der Weboberfläche. „auto“ richtet sich nach dem Browser.
+  require_station_approval:
+    name: Neue Wallboxen freigeben lassen
+    description: Unbekannte Wallboxen werden abgewiesen, bis sie in der Oberfläche freigegeben sind.
+  local_list_enabled:
+    name: Chip-Liste auf Wallboxen übertragen
+    description: Gültige Chips werden per SendLocalList auf die Boxen geschoben, damit auch bei Netzausfall geladen werden kann.
+  apply_station_config:
+    name: Standardeinstellungen setzen
+    description: Beim Verbinden Zählerintervall (5 Min.) und StopTransactionOnInvalidId setzen (OCPP 1.6).
+  heartbeat_interval:
+    name: Heartbeat-Intervall (Sekunden)
+  log_ocpp_messages:
+    name: OCPP-Nachrichten protokollieren
+    description: Für die Inbetriebnahme neuer Wallbox-Typen – erzeugt viel Log.
+  admin_password:
+    name: Passwort für Direktzugriff
+    description: Nur nötig, wenn Port 8099 freigegeben ist. Leer = Zugriff nur über die HA-Seitenleiste.
+  entra_tenant_id:
+    name: Entra Tenant-ID
+  entra_client_id:
+    name: Entra Client-ID
+  entra_client_secret:
+    name: Entra Client-Secret
+  entra_sync_group_id:
+    name: Entra-Gruppe (Objekt-ID) der ladeberechtigten Mitarbeiter
+  entra_rfid_attribute:
+    name: Entra-Attribut mit Chip-UID
+    description: Standard extensionAttribute10, mehrere UIDs mit Komma trennen.
+  entra_sync_interval_min:
+    name: Sync-Intervall (Minuten)
+network:
+  9000/tcp: OCPP – hierhin verbinden sich die Wallboxen
+  8099/tcp: Weboberfläche direkt (optional)

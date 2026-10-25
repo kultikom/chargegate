@@ -1,0 +1,18 @@
+# Standalone deployment (without Home Assistant)
+services:
+  chargegate:
+    build:
+      context: ./chargegate
+      dockerfile: Dockerfile.standalone
+    restart: unless-stopped
+    env_file: .env
+    environment:
+      DATABASE_URL: sqlite+aiosqlite:////data/chargegate.db
+    volumes:
+      - chargegate-data:/data
+    ports:
+      - "9000:9000"   # OCPP – allow only from the station networks
+      - "8080:8080"   # web UI – internal / VPN only, ideally behind a reverse proxy with HTTPS
+
+volumes:
+  chargegate-data:

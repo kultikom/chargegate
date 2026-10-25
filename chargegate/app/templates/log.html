@@ -1,0 +1,30 @@
+{% extends "base.html" %}
+{% block content %}
+<h1>{{ _("Log") }}</h1>
+<p class="sub">{{ _("Every tag check at a station (latest 300)") }}</p>
+<form method="get" class="row" style="margin-bottom:16px">
+  <div style="flex:0 1 220px"><select name="result" onchange="this.form.submit()">
+    <option value="">{{ _("all results") }}</option>
+    <option value="Accepted" {{ 'selected' if result=='Accepted' }}>{{ 'Accepted'|result }}</option>
+    <option value="Blocked" {{ 'selected' if result=='Blocked' }}>{{ 'Blocked'|result }}</option>
+    <option value="Invalid" {{ 'selected' if result=='Invalid' }}>{{ 'Invalid'|result }}</option>
+  </select></div>
+</form>
+<section class="card">
+  <div class="table-wrap"><table>
+    <tr><th>{{ _("Time") }}</th><th>{{ _("Station") }}</th><th>{{ _("Tag") }}</th><th>{{ _("Employee") }}</th><th>{{ _("Result") }}</th><th>{{ _("Note") }}</th></tr>
+    {% for e in events %}
+    <tr>
+      <td>{{ e.ts|local('seconds') }}</td>
+      <td>{{ names.get(e.station_id) or e.station_id }}</td>
+      <td class="mono">{{ e.tag_uid }}</td>
+      <td>{{ e.employee.name if e.employee else '–' }}</td>
+      <td><span class="pill {{ e.result }}">{{ e.result|result }}</span></td>
+      <td class="muted">{{ e.reason|reason }}</td>
+    </tr>
+    {% else %}
+    <tr><td colspan="6" class="empty">{{ _("No entries yet.") }}</td></tr>
+    {% endfor %}
+  </table></div>
+</section>
+{% endblock %}
