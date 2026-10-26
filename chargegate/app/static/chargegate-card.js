@@ -12,27 +12,28 @@
  *   stations: [DUO-01, EVE-01]    # optional: only these station IDs, in this order
  *   columns: 2                    # optional: fixed number of columns (default: responsive)
  *   show_employee: true           # optional
+ *   show_soc: true                # optional: battery level, if the station reports it
  */
-const CG_VERSION = "1.2.1";
+const CG_VERSION = "1.3.0";
 
 const CG_TEXT = {
   en: {
     title: "Charging points", offline: "Offline", free: "Free", charging: "Charging",
     connected: "Connected", fault: "Fault", unavailable: "Unavailable", reserved: "Reserved",
     connector: "Point", noStations: "No ChargeGate charging points found. Is the MQTT integration set up?",
-    charging_now: "{n} charging", of: "of", kw: "kW", since: "since",
+    charging_now: "{n} charging", of: "of", kw: "kW", since: "since", soc: "Battery",
   },
   de: {
     title: "Ladepunkte", offline: "Offline", free: "Frei", charging: "Lädt",
     connected: "Verbunden", fault: "Störung", unavailable: "Nicht verfügbar", reserved: "Reserviert",
     connector: "Punkt", noStations: "Keine ChargeGate-Ladepunkte gefunden. Ist die MQTT-Integration eingerichtet?",
-    charging_now: "{n} laden", of: "von", kw: "kW", since: "seit",
+    charging_now: "{n} laden", of: "von", kw: "kW", since: "seit", soc: "Akkustand",
   },
 };
 
 class ChargeGateCard extends HTMLElement {
   setConfig(config) {
-    this._config = { show_employee: true, ...(config || {}) };
+    this._config = { show_employee: true, show_soc: true, ...(config || {}) };
     this._sig = null;
     if (!this.shadowRoot) this.attachShadow({ mode: "open" });
   }
@@ -195,6 +196,7 @@ class ChargeGateCard extends HTMLElement {
           ${multi ? `<span class="num">${a.connector}</span>` : ""}
           <span class="pill">${this._esc(this._t(state))}</span>
           <span class="who" title="${this._esc(employee)}">${this._esc(employee)}</span>
+          ${this._soc(a, active)}
           <span class="dur"${active && a.session_start ? ` data-start="${this._esc(a.session_start)}"` : ""}>${active ? this._duration(a.session_start) : ""}</span>
         </div>
         <div class="row2">
@@ -202,6 +204,19 @@ class ChargeGateCard extends HTMLElement {
           <span class="kw">${this._kw(power)} <span class="max">/ ${Math.round(max / 1000)} ${this._t("kw")}</span></span>
         </div>
       </div>`;
+  }
+
+  _soc(a, active) {
+    if (!this._config.show_soc || !active || a.soc === null || a.soc === undefined) return "";
+    const soc = Math.round(a.soc);
+    const from = a.soc_start !== null && a.soc_start !== undefined && a.soc_start < soc ? `${Math.round(a.soc_start)} → ` : "";
+    const title = `${this._t("soc")}: ${from}${soc} %`;
+    return `<span class="soc" title="${this._esc(title)}">
+      <svg viewBox="0 0 24 12" width="22" height="11" aria-hidden="true">
+        <rect x="0.75" y="0.75" width="20" height="10.5" rx="2" fill="none" stroke="currentColor" stroke-width="1.5"/>
+        <rect x="21.5" y="3.5" width="2" height="5" rx="1" fill="currentColor"/>
+        <rect x="2.5" y="2.5" width="${(16.5 * soc / 100).toFixed(1)}" height="7" rx="1" fill="currentColor"/>
+      </svg>${soc} %</span>`;
   }
 
   static get styles() {
@@ -230,6 +245,8 @@ class ChargeGateCard extends HTMLElement {
       .pill { font-size: .8em; font-weight: 600; padding: 2px 9px; border-radius: 999px; white-space: nowrap; flex: none;
               color: var(--cg-c); background: color-mix(in srgb, var(--cg-c) 16%, transparent); }
       .who { color: var(--primary-text-color); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; flex: 1; }
+      .soc { display: inline-flex; align-items: center; gap: 4px; font-size: .9em; white-space: nowrap; flex: none;
+             color: var(--secondary-text-color); font-variant-numeric: tabular-nums; }
       .dur { margin-left: auto; color: var(--secondary-text-color); font-variant-numeric: tabular-nums; white-space: nowrap; font-size: .9em; }
       .row2 { display: flex; align-items: center; gap: 10px; }
       .bar { flex: 1; height: 10px; border-radius: 5px; background: var(--divider-color, rgba(127,127,127,.2)); overflow: hidden; }

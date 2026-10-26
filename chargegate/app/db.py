@@ -65,6 +65,8 @@ class ConnectorStatus(Base):
     energy_wh: Mapped[float | None] = mapped_column(Float)   # last energy register reading
     power_w: Mapped[float | None] = mapped_column(Float)     # last active power reading
     peak_power_w: Mapped[float | None] = mapped_column(Float)  # highest power ever seen (learns 11/22 kW)
+    soc: Mapped[float | None] = mapped_column(Float)            # battery state of charge of the car, %
+    soc_supported: Mapped[bool | None] = mapped_column(Boolean)  # station has reported SoC at least once
 
     @property
     def max_power_w(self) -> int:
@@ -114,6 +116,8 @@ class Transaction(Base):
     meter_start_wh: Mapped[float | None] = mapped_column(Float)
     meter_last_wh: Mapped[float | None] = mapped_column(Float)
     meter_stop_wh: Mapped[float | None] = mapped_column(Float)
+    soc_start: Mapped[float | None] = mapped_column(Float)   # battery %, only if the station reports it
+    soc_last: Mapped[float | None] = mapped_column(Float)
     stop_reason: Mapped[str | None] = mapped_column(String(50))
     station: Mapped[Station] = relationship()
     employee: Mapped[Employee | None] = relationship()

@@ -59,6 +59,7 @@ class ChargePoint201(CP201):
         tx_id = transaction_info["transaction_id"]
         wh = core.energy_wh_from_meter_values(meter_value)
         w = core.power_w_from_meter_values(meter_value)
+        soc = core.soc_from_meter_values(meter_value)
         uid = _token(id_token)
         status = emp_id = None
         if uid:
@@ -70,8 +71,10 @@ class ChargePoint201(CP201):
             tx = await core.start_transaction(
                 self.id, (evse or {}).get("id"), uid, wh, ocpp_tx_id=tx_id,
                 employee_id=emp_id, started_at=core.parse_ts(timestamp))
+            if soc is not None:
+                await core.update_transaction(self.id, tx_id, soc_last=soc)
         else:
-            fields = {"meter_last_wh": wh}
+            fields = {"meter_last_wh": wh, "soc_last": soc}
             if uid and not tx.tag_uid:      # cable plugged in first, tag presented afterwards
                 fields.update(tag_uid=uid, employee_id=emp_id)
             await core.update_transaction(self.id, tx_id, **fields)
@@ -82,7 +85,7 @@ class ChargePoint201(CP201):
                 self.id, tx_id, stopped_at=core.parse_ts(timestamp), meter_stop_wh=wh,
                 stop_reason=transaction_info.get("stopped_reason") or trigger_reason)
             w = 0.0
-        await core.record_meter(self.id, connector, wh, w)
+        await core.record_meter(self.id, connector, wh, w, soc)
 
         if status:
             return call_result.TransactionEvent(id_token_info={"status": status})
@@ -91,7 +94,8 @@ class ChargePoint201(CP201):
     @on(Action.meter_values)
     async def on_meter_values(self, evse_id, meter_value, **kw):
         await core.record_meter(self.id, evse_id, core.energy_wh_from_meter_values(meter_value),
-                                core.power_w_from_meter_values(meter_value))
+                                core.power_w_from_meter_values(meter_value),
+                                core.soc_from_meter_values(meter_value))
         await core.touch_station(self.id)
         return call_result.MeterValues()
 

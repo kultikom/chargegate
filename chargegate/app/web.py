@@ -535,7 +535,7 @@ def _month_range(month: str) -> tuple[datetime, datetime, str]:
     return to_utc(start), to_utc(end), start.strftime("%Y-%m")
 
 
-async def _transactions(month: str, site_id: str):
+async def _transactions(month: str, site_id: str, employee_id: str = ""):
     start, end, label = _month_range(month)
     async with Session() as s:
         stmt = (select(Transaction)
@@ -543,33 +543,42 @@ async def _transactions(month: str, site_id: str):
                          selectinload(Transaction.station).selectinload(Station.site))
                 .where(Transaction.started_at >= start, Transaction.started_at < end)
                 .order_by(Transaction.started_at.desc()))
-        if site_id:
+        if site_id.isdigit():
             stmt = stmt.join(Station).where(Station.site_id == int(site_id))
+        if employee_id.isdigit():
+            stmt = stmt.where(Transaction.employee_id == int(employee_id))
         txs = (await s.execute(stmt)).scalars().all()
         sites = (await s.execute(select(Site).order_by(Site.name))).scalars().all()
-    return txs, sites, label
+        employees = sorted((await s.execute(select(Employee))).scalars().all(),
+                           key=lambda e: natural_key(e.name))
+    return txs, sites, employees, label
 
 
 @web_app.get("/transactions", response_class=HTMLResponse)
-async def transactions_page(request: Request, user=Depends(admin), month: str = "", site: str = ""):
-    txs, sites, label = await _transactions(month, site)
+async def transactions_page(request: Request, user=Depends(admin), month: str = "", site: str = "",
+                            employee: str = ""):
+    txs, sites, employees, label = await _transactions(month, site, employee)
     total = sum(t.energy_kwh or 0 for t in txs)
     per_emp: dict[str, float] = {}
     for t in txs:
         key = t.employee.name if t.employee else (t.tag_uid or _("no tag"))
         per_emp[key] = per_emp.get(key, 0) + (t.energy_kwh or 0)
     return render(request, "transactions.html", txs=txs, sites=sites, month=label, site=site,
-                  total=total, per_emp=sorted(per_emp.items(), key=lambda x: -x[1]))
+                  employees=employees, employee=employee, total=total, per_emp=sorted(per_emp.items(), key=lambda x: -x[1]))
 
 
 @web_app.get("/transactions.csv")
-async def transactions_csv(user=Depends(admin), month: str = "", site: str = ""):
-    txs, _sites, label = await _transactions(month, site)
+async def transactions_csv(user=Depends(admin), month: str = "", site: str = "", employee: str = ""):
+    txs, _sites, employees, label = await _transactions(month, site, employee)
+    emp = next((e for e in employees if str(e.id) == employee), None)
+    if emp:
+        label += "-" + (re.sub(r"[^A-Za-z0-9]+", "-", emp.name).strip("-").lower() or str(emp.id))
     buf = io.StringIO()
     # German Excel expects ";" and decimal commas
     w = csv.writer(buf, delimiter=";" if i18n.current() == "de" else ",")
     w.writerow([_(h) for h in ("Start", "End", "Site", "Station", "Connector", "Employee", "Email",
-                               "Tag", "kWh", "Meter start (Wh)", "Meter end (Wh)", "Stop reason")])
+                               "Tag", "kWh", "Meter start (Wh)", "Meter end (Wh)", "SoC start (%)", "SoC end (%)",
+                               "Stop reason")])
     for t in txs:
         w.writerow([local(t.started_at), local(t.stopped_at) if t.stopped_at else _("running"),
                     t.station.site.name if t.station and t.station.site else "",
@@ -577,7 +586,9 @@ async def transactions_csv(user=Depends(admin), month: str = "", site: str = "")
                     t.connector_id or "", t.employee.name if t.employee else "",
                     (t.employee.email or "") if t.employee else "", t.tag_uid or "",
                     i18n.number(t.energy_kwh, 3) if t.energy_kwh is not None else "",
-                    t.meter_start_wh or "", t.meter_stop_wh or "", t.stop_reason or ""])
+                    t.meter_start_wh or "", t.meter_stop_wh or "",
+                    "" if t.soc_start is None else round(t.soc_start),
+                    "" if t.soc_last is None else round(t.soc_last), t.stop_reason or ""])
     return StreamingResponse(iter(["﻿" + buf.getvalue()]), media_type="text/csv",
                              headers={"Content-Disposition": f"attachment; filename=sessions-{label}.csv"})
 

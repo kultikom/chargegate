@@ -20,6 +20,7 @@ connected: dict[str, object] = {}
 
 ENERGY = "Energy.Active.Import.Register"
 POWER = "Power.Active.Import"
+SOC = "SoC"
 CHARGING_STATES = {"Charging", "Occupied", "SuspendedEV", "SuspendedEVSE"}
 
 
@@ -106,6 +107,8 @@ async def set_connector_status(station_id: str, connector_id: int, status: str,
         cs.status, cs.error_code, cs.updated = status, error_code, utcnow()
         if status not in CHARGING_STATES:
             cs.power_w = 0.0
+        if status in ("Available", "Unavailable", "Faulted"):
+            cs.soc = None                       # car unplugged – its battery level is gone
         st = await s.get(Station, station_id)
         if st:
             st.last_seen = utcnow()
@@ -114,9 +117,9 @@ async def set_connector_status(station_id: str, connector_id: int, status: str,
 
 
 async def record_meter(station_id: str, connector_id: int | None, energy_wh: float | None,
-                       power_w: float | None = None) -> None:
-    """Remember the latest energy register / power reading per connector."""
-    if not connector_id or (energy_wh is None and power_w is None):
+                       power_w: float | None = None, soc: float | None = None) -> None:
+    """Remember the latest energy register / power / battery reading per connector."""
+    if not connector_id or (energy_wh is None and power_w is None and soc is None):
         return
     async with Session() as s:
         cs = await s.get(ConnectorStatus, (station_id, connector_id))
@@ -129,6 +132,8 @@ async def record_meter(station_id: str, connector_id: int | None, energy_wh: flo
             cs.power_w = power_w
             if power_w > (cs.peak_power_w or 0):
                 cs.peak_power_w = power_w
+        if soc is not None:
+            cs.soc, cs.soc_supported = soc, True
         await s.commit()
     notify(station_id)
 
@@ -173,6 +178,8 @@ async def update_transaction(station_id: str, ocpp_tx_id: str, **fields) -> Tran
                 continue
             if k == "meter_last_wh" and tx.meter_start_wh is None:
                 tx.meter_start_wh = v
+            if k == "soc_last" and tx.soc_start is None:
+                tx.soc_start = v
             setattr(tx, k, v)
         await s.commit()
     notify(station_id)
@@ -207,6 +214,15 @@ def energy_wh_from_meter_values(meter_values: list | None) -> float | None:
 def power_w_from_meter_values(meter_values: list | None) -> float | None:
     """Return the total active power (Power.Active.Import) in W."""
     return _sampled(meter_values, POWER, "W")
+
+
+def soc_from_meter_values(meter_values: list | None) -> float | None:
+    """Return the car's battery state of charge in percent, if the station reports it.
+
+    Plain AC charging (IEC 61851) carries no SoC – only DC chargers and ISO 15118 setups send it.
+    """
+    value = _sampled(meter_values, SOC, "Percent")
+    return None if value is None else max(0.0, min(100.0, value))
 
 
 def _sampled(meter_values: list | None, measurand: str, default_unit: str) -> float | None:
@@ -296,8 +312,8 @@ def station_config_16() -> list[tuple[str, list[str]]]:
     """
     return [
         ("MeterValueSampleInterval", [str(config.METER_VALUE_INTERVAL)]),
-        # energy register + power; fall back to energy only if the station rejects power
-        ("MeterValuesSampledData", [f"{ENERGY},{POWER}", ENERGY]),
+        # energy + power + battery level; fall back step by step if the station rejects a measurand
+        ("MeterValuesSampledData", [f"{ENERGY},{POWER},{SOC}", f"{ENERGY},{POWER}", ENERGY]),
         ("StopTransactionOnInvalidId", ["true"]),            # blocked tag -> charging stops
     ]
 

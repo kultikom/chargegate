@@ -5,17 +5,23 @@
   <div><label>{{ _("Month") }}</label><input type="month" name="month" value="{{ month }}"></div>
   <div><label>{{ _("Site") }}</label><select name="site"><option value="">{{ _("all") }}</option>
     {% for s in sites %}<option value="{{ s.id }}" {{ 'selected' if site == s.id|string }}>{{ s.name }}</option>{% endfor %}</select></div>
+  <div><label>{{ _("Employee") }}</label><select name="employee"><option value="">{{ _("all") }}</option>
+    {% for e in employees %}<option value="{{ e.id }}" {{ 'selected' if employee == e.id|string }}>{{ e.name }}{{ '' if e.active else ' (' ~ _('deactivated') ~ ')' }}</option>{% endfor %}</select></div>
   <button style="flex:0">{{ _("Show") }}</button>
-  <a class="btn ghost" style="flex:0;padding:8px 14px" href="{{ base }}/transactions.csv?month={{ month }}&site={{ site }}">{{ _("CSV export") }}</a>
+  <a class="btn ghost" style="flex:0;padding:8px 14px" href="{{ base }}/transactions.csv?month={{ month }}&site={{ site }}&employee={{ employee }}">{{ _("CSV export") }}</a>
 </form>
 
 <div class="grid" style="margin-bottom:20px">
   <div class="card"><h2>{{ _("Sessions") }}</h2><div class="stat">{{ txs|length }}</div></div>
   <div class="card"><h2>{{ _("Total energy") }}</h2><div class="stat">{{ total|kwh }}</div></div>
+  {% if employee %}
+  <div class="card"><h2>{{ _("Average per session") }}</h2><div class="stat">{{ (total / txs|length if txs else 0)|kwh }}</div></div>
+  {% else %}
   <div class="card"><h2>{{ _("By employee") }}</h2>
     {% for name, v in per_emp[:5] %}<div class="row" style="justify-content:space-between"><span>{{ name }}</span><span class="num" style="flex:0;white-space:nowrap">{{ v|kwh }}</span></div>
     {% else %}<div class="empty">–</div>{% endfor %}
   </div>
+  {% endif %}
 </div>
 
 <section class="card">
@@ -27,7 +33,7 @@
       <td>{% if t.stopped_at %}{{ t.stopped_at|local('time') }}{% else %}<span class="pill Charging">{{ _("running") }}</span>{% endif %}</td>
       <td>{{ t.employee.name if t.employee else '' }}<br><span class="mono muted">{{ t.tag_uid or '' }}</span></td>
       <td>{{ t.station.name or t.station_id }}<br><span class="muted">{{ t.station.site.name if t.station.site else '' }}{% if t.connector_id %} · #{{ t.connector_id }}{% endif %}</span></td>
-      <td class="num">{{ t.energy_kwh|kwh }}</td>
+      <td class="num">{{ t.energy_kwh|kwh }}{% if t.soc_last is not none %}<br><span class="muted" title="{{ _('Battery') }}">{% if t.soc_start is not none and t.soc_start < t.soc_last %}{{ t.soc_start|round|int }} → {% endif %}{{ t.soc_last|round|int }} %</span>{% endif %}</td>
       <td class="muted">{{ t.stop_reason or '' }}</td>
     </tr>
     {% else %}

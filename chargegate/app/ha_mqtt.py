@@ -30,10 +30,10 @@ HUB_ID = "chargegate_hub"
 _NAMES = {
     "en": {"online": "Online", "status": "Status", "charging": "Charging", "power": "Power",
            "energy": "Energy", "session_energy": "Session energy", "employee": "Employee",
-           "connector": "Connector {c}", "running": "Running sessions", "stations_online": "Stations online"},
+           "connector": "Connector {c}", "soc": "Battery", "running": "Running sessions", "stations_online": "Stations online"},
     "de": {"online": "Online", "status": "Status", "charging": "Lädt", "power": "Leistung",
            "energy": "Energie", "session_energy": "Energie Ladevorgang", "employee": "Mitarbeiter",
-           "connector": "Anschluss {c}", "running": "Laufende Ladevorgänge", "stations_online": "Stationen online"},
+           "connector": "Anschluss {c}", "soc": "Akkustand", "running": "Laufende Ladevorgänge", "stations_online": "Stationen online"},
 }
 NAMES = _NAMES["de" if config.LANGUAGE == "de" else "en"]
 ORIGIN = {"name": "ChargeGate", "sw_version": config.VERSION,
@@ -209,6 +209,12 @@ class Bridge:
                 **common, "name": name("employee"), "unique_id": f"{uid}_employee",
                 "value_template": "{{ value_json.employee }}", "icon": "mdi:account"}
                 if show_employee else None)
+            # battery level only exists if the station has ever reported it (DC / ISO 15118)
+            await self._config("sensor", node, f"{c}_soc", {
+                **common, "name": name("soc"), "unique_id": f"{uid}_soc",
+                "value_template": "{{ value_json.soc if value_json.soc is not none else 'unknown' }}",
+                "unit_of_measurement": "%", "device_class": "battery", "state_class": "measurement"}
+                if cs.soc_supported else None)
 
             tx = tx_by_connector.get(c)
             online = sid in core.connected
@@ -227,6 +233,8 @@ class Bridge:
                 "energy": round(cs.energy_wh / 1000, 3) if cs.energy_wh is not None else None,
                 "session_energy": (tx.energy_kwh or 0) if tx is not None else 0,
                 "session_start": (tx.started_at.replace(microsecond=0).isoformat() + "Z") if tx is not None else None,
+                "soc": round(cs.soc) if cs.soc is not None and online else None,
+                "soc_start": round(tx.soc_start) if tx is not None and tx.soc_start is not None else None,
             }
             if show_employee:
                 state["employee"] = employee_label(
@@ -244,7 +252,8 @@ class Bridge:
             await self._pub(f"{BASE}/{slug(sid)}/{c}/state", "")
         for c in connectors:
             for comp, obj in (("sensor", "status"), ("binary_sensor", "charging"), ("sensor", "power"),
-                              ("sensor", "energy"), ("sensor", "session_energy"), ("sensor", "employee")):
+                              ("sensor", "energy"), ("sensor", "session_energy"), ("sensor", "employee"),
+                              ("sensor", "soc")):
                 await self._config(comp, node, f"{c}_{obj}", None)
         log.info("Removed %s from Home Assistant", sid)
 

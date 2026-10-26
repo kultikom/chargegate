@@ -56,8 +56,9 @@ class ChargePoint16(CP16):
 
     @on(Action.stop_transaction)
     async def on_stop(self, meter_stop, timestamp, transaction_id, **kw):
+        soc = core.soc_from_meter_values(kw.get("transaction_data"))
         tx = await core.update_transaction(self.id, str(transaction_id), meter_stop_wh=float(meter_stop),
-                                           meter_last_wh=float(meter_stop),
+                                           meter_last_wh=float(meter_stop), soc_last=soc,
                                            stopped_at=core.parse_ts(timestamp),
                                            stop_reason=kw.get("reason") or "Local")
         if tx:
@@ -70,9 +71,10 @@ class ChargePoint16(CP16):
     async def on_meter_values(self, connector_id, meter_value, transaction_id=None, **kw):
         wh = core.energy_wh_from_meter_values(meter_value)
         w = core.power_w_from_meter_values(meter_value)
-        if transaction_id is not None and wh is not None:
-            await core.update_transaction(self.id, str(transaction_id), meter_last_wh=wh)
-        await core.record_meter(self.id, connector_id, wh, w)
+        soc = core.soc_from_meter_values(meter_value)
+        if transaction_id is not None and (wh is not None or soc is not None):
+            await core.update_transaction(self.id, str(transaction_id), meter_last_wh=wh, soc_last=soc)
+        await core.record_meter(self.id, connector_id, wh, w, soc)
         await core.touch_station(self.id)
         return call_result.MeterValues()
 

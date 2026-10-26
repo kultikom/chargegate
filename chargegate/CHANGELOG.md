@@ -1,5 +1,16 @@
 # Changelog
 
+## 1.3.0
+
+- **Battery level (SoC):** read from the meter values when a station reports it (DC chargers,
+  ISO 15118). Shown in the dashboard card, as a *Battery* entity in Home Assistant (created only once
+  a station has reported it), per session on the *Sessions* page and in the CSV export.
+  Plain AC charging (IEC 61851) does not transmit the battery level, so most wallboxes won't show it.
+- OCPP 1.6 stations are asked for energy, power and SoC, falling back step by step if a measurand
+  is rejected
+- *Sessions* page: new filter by employee (also applied to the CSV export); shows the average
+  energy per session when filtered
+
 ## 1.2.1
 
 - Overview and *Stations* page sort stations by name with natural number order ("Duo 2" before
