@@ -1,5 +1,15 @@
 # Changelog
 
+## 1.4.1
+
+- **Fix:** station settings (meter value interval, power measurand) and the tag list are now sent on
+  every connection – before, only after a station *booted*. Stations that merely reconnected after
+  a ChargeGate update never received them and reported no power.
+- **Fix:** the dashboard card trusts the station's own status: a connector reporting `Charging` is
+  shown as charging even before the first power reading (was shown as "Connected")
+- Stations that don't report power get it estimated from their energy register
+- The state badge in the card shows the raw OCPP status as tooltip
+
 ## 1.4.0
 
 - **Charging point in the log:** the *Log* page shows at which charging point a tag was used.

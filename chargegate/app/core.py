@@ -159,8 +159,17 @@ async def record_meter(station_id: str, connector_id: int | None, energy_wh: flo
         if cs is None:
             cs = ConnectorStatus(station_id=station_id, connector_id=connector_id, status="Unknown")
             s.add(cs)
+        now = utcnow()
         if energy_wh is not None:
-            cs.energy_wh = energy_wh
+            if (power_w is None and cs.energy_wh is not None and cs.energy_at is not None
+                    and cs.status in CHARGING_STATES):
+                # Station sends no power: estimate it from the energy register
+                dt = (now - cs.energy_at).total_seconds()
+                if 20 <= dt <= 900 and energy_wh >= cs.energy_wh:
+                    estimate = (energy_wh - cs.energy_wh) * 3600 / dt
+                    if estimate <= 400_000:          # ignore nonsense (e.g. meter jumps)
+                        cs.power_w = round(estimate)  # estimates never teach the maximum
+            cs.energy_wh, cs.energy_at = energy_wh, now
         if power_w is not None:
             cs.power_w = power_w
             if power_w > (cs.peak_power_w or 0):
@@ -368,8 +377,19 @@ async def apply_station_config(station_id: str) -> None:
                 break
 
 
+_last_setup: dict[str, float] = {}
+
+
 async def push_later(station_id: str, delay: float = 5) -> None:
+    """Apply settings and the tag list shortly after a station (re)connects or boots.
+
+    Runs on every connection, not only on BootNotification: after a server restart stations
+    usually just reconnect without booting. Deduplicated so connect + boot don't do it twice.
+    """
     await asyncio.sleep(delay)
+    if time.monotonic() - _last_setup.get(station_id, -1e9) < 60:
+        return
+    _last_setup[station_id] = time.monotonic()
     if config.APPLY_STATION_CONFIG:
         await apply_station_config(station_id)
     if config.LOCAL_LIST_ENABLED:

@@ -14,7 +14,7 @@
  *   show_employee: true           # optional
  *   show_soc: true                # optional: battery level, if the station reports it
  */
-const CG_VERSION = "1.4.0";
+const CG_VERSION = "1.4.1";
 
 const CG_TEXT = {
   en: {
@@ -115,8 +115,10 @@ class ChargeGateCard extends HTMLElement {
     if (["Faulted"].includes(a.status)) return "fault";
     if (["Unavailable"].includes(a.status)) return "unavailable";
     if (["Reserved"].includes(a.status)) return "reserved";
-    if (a.charging) return (a.power || 0) >= 100 ? "charging" : "connected";
+    // The station's own status wins – power is only a hint (not every station reports it)
+    if (a.status === "Charging") return "charging";
     if (["Preparing", "Occupied", "Finishing", "SuspendedEV", "SuspendedEVSE"].includes(a.status)) return "connected";
+    if (a.charging) return (a.power || 0) >= 100 ? "charging" : "connected";
     return "free";
   }
 
@@ -196,7 +198,7 @@ class ChargeGateCard extends HTMLElement {
           ${multi ? (a.connector_label
             ? `<span class="lbl" title="${this._esc(a.connector_label)}">${this._esc(a.connector_label)}</span>`
             : `<span class="num">${a.connector}</span>`) : ""}
-          <span class="pill">${this._esc(this._t(state))}</span>
+          <span class="pill" title="OCPP: ${this._esc(a.status)}">${this._esc(this._t(state))}</span>
           <span class="who" title="${this._esc(employee)}">${this._esc(employee)}</span>
           ${this._soc(a, active)}
           <span class="dur"${active && a.session_start ? ` data-start="${this._esc(a.session_start)}"` : ""}>${active ? this._duration(a.session_start) : ""}</span>

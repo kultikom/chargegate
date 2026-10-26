@@ -52,6 +52,9 @@ class CP201(_CP201):
 
 CONNECTOR = 1
 SOC = None          # starting battery level in % (only sent if --soc is given)
+BOOT = True         # send BootNotification (a reconnect after a server restart usually doesn't)
+POWER = True        # report Power.Active.Import
+STEP_DELAY = 0.5
 
 
 def now():
@@ -59,7 +62,8 @@ def now():
 
 
 async def run16(cp, tag, kwh, steps):
-    await cp.call(c16.BootNotification(charge_point_vendor="Simulator", charge_point_model="Sim16"))
+    if BOOT:
+        await cp.call(c16.BootNotification(charge_point_vendor="Simulator", charge_point_model="Sim16"))
     await cp.call(c16.StatusNotification(connector_id=CONNECTOR, error_code="NoError", status="Available"))
     res = await cp.call(c16.Authorize(id_tag=tag))
     print("Authorize:", res.id_tag_info["status"])
@@ -71,10 +75,11 @@ async def run16(cp, tag, kwh, steps):
     tx = start.transaction_id
     print("Transaction", tx)
     for _ in range(steps):
-        await asyncio.sleep(0.5)
+        await asyncio.sleep(STEP_DELAY)
         meter += int(kwh * 1000 / steps)
-        sampled = [{"value": str(meter), "measurand": "Energy.Active.Import.Register", "unit": "Wh"},
-                   {"value": "11000", "measurand": "Power.Active.Import", "unit": "W"}]
+        sampled = [{"value": str(meter), "measurand": "Energy.Active.Import.Register", "unit": "Wh"}]
+        if POWER:
+            sampled.append({"value": "11000", "measurand": "Power.Active.Import", "unit": "W"})
         if SOC is not None:
             soc_now = min(100, SOC + (meter - 1_250_000) / 600)      # ~60 kWh battery
             sampled.append({"value": f"{soc_now:.0f}", "measurand": "SoC", "unit": "Percent", "location": "EV"})
@@ -112,7 +117,7 @@ async def run201(cp, tag, kwh, steps):
                                         id_token={"id_token": tag, "type": "ISO14443"},
                                         evse={"id": CONNECTOR, "connectorId": 1}, meter_value=mv(kwh_meter)))
     for i in range(steps):
-        await asyncio.sleep(0.5)
+        await asyncio.sleep(STEP_DELAY)
         kwh_meter += kwh / steps
         await cp.call(c201.TransactionEvent(event_type="Updated", timestamp=now(), trigger_reason="MeterValuePeriodic",
                                             seq_no=i + 1, transaction_info={"transactionId": tx},
@@ -135,10 +140,13 @@ async def main():
     p.add_argument("--steps", type=int, default=3)
     p.add_argument("--connector", type=int, default=1, help="connector (1.6) / EVSE (2.0.1) to use")
     p.add_argument("--soc", type=float, help="report the car's battery level, starting at this %%")
+    p.add_argument("--no-boot", action="store_true", help="skip BootNotification (plain reconnect)")
+    p.add_argument("--no-power", action="store_true", help="don't report power")
+    p.add_argument("--step-delay", type=float, default=0.5, help="seconds between meter values")
     p.add_argument("--stay", type=float, default=0, help="stay connected for N more seconds afterwards")
     a = p.parse_args()
-    global CONNECTOR, SOC
-    CONNECTOR, SOC = a.connector, a.soc
+    global CONNECTOR, SOC, BOOT, POWER, STEP_DELAY
+    CONNECTOR, SOC, BOOT, POWER, STEP_DELAY = a.connector, a.soc, not a.no_boot, not a.no_power, a.step_delay
 
     headers = {}
     if a.password:

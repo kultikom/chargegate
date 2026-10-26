@@ -2,6 +2,7 @@
 
 URL to configure in the station: ws://<server>:9000/ocpp/<ChargeBoxId>
 """
+import asyncio
 import base64
 import logging
 
@@ -94,6 +95,8 @@ async def ocpp_endpoint(ws: WebSocket):
     core.connected[station_id] = cp
     log.info("%s connected (OCPP %s)", station_id, cls.version)
     core.notify(station_id)
+    if config.APPLY_STATION_CONFIG or config.LOCAL_LIST_ENABLED:
+        asyncio.create_task(core.push_later(station_id, delay=8))
     try:
         await cp.start()
     except WebSocketDisconnect:
