@@ -169,7 +169,10 @@ DE = {
     "By employee": "Nach Mitarbeiter", "Start": "Start", "End": "Ende", "Energy": "Energie",
     "Reason": "Grund", "running": "läuft", "No sessions in this period.": "Keine Ladevorgänge in diesem Zeitraum.",
     "Connector": "Anschluss", "Meter start (Wh)": "Zähler Start (Wh)", "Meter end (Wh)": "Zähler Ende (Wh)",
-    "Stop reason": "Stoppgrund", "kWh": "kWh", "Battery": "Akkustand", "Average per session": "Ø pro Ladevorgang",
+    "Stop reason": "Stoppgrund", "kWh": "kWh", "Battery": "Akkustand", "Charging point": "Ladepunkt",
+    "Charging point names": "Ladepunkt-Namen", "e.g. Left, Right": "z. B. Links, Rechts",
+    "Comma-separated, in the order of the connector numbers 1, 2, …":
+        "Mit Komma getrennt, in der Reihenfolge der Anschlussnummern 1, 2, …", "Average per session": "Ø pro Ladevorgang",
     "SoC start (%)": "Akkustand Start (%)", "SoC end (%)": "Akkustand Ende (%)",
     # log
     "Every tag check at a station (latest 300)": "Jede Chip-Prüfung an einer Wallbox (letzte 300)",

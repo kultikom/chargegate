@@ -1,5 +1,13 @@
 # Changelog
 
+## 1.4.0
+
+- **Charging point in the log:** the *Log* page shows at which charging point a tag was used.
+  An `Authorize` followed by the session start now gives one log entry instead of two. Existing
+  entries get their charging point from the matching session on start-up.
+- **Charging point names** per station, e.g. "Left, Right" for a Compleo Duo – shown in the log,
+  sessions, overview, CSV export and the dashboard card
+
 ## 1.3.0
 
 - **Battery level (SoC):** read from the meter values when a station reports it (DC chargers,

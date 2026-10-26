@@ -52,6 +52,10 @@ Settings are made in the ducto web interface.
 **Settings › Connectors**: *Connector ID (OCPP)* 1 and 2 on a Duo. A Duo shows up as **one** station
 with two connectors.
 
+**Left or right?** OCPP only knows connector numbers. Plug in a car or check the ducto web interface
+to see which side is connector 1, then enter names like `Left, Right` under *Stations › Edit ›
+Charging point names* – they appear in the log, sessions and the dashboard.
+
 Load management (master/slave) is independent of this – every ducto connects to ChargeGate itself.
 
 ## Alfen Eve Single Pro-line (e.g. 904460027) and Pro-line DE (e.g. 904460127)

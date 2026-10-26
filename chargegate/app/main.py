@@ -5,6 +5,7 @@ import logging
 import uvicorn
 
 import config
+import core
 import ha_mqtt
 import ha_setup
 from db import init_db
@@ -18,6 +19,8 @@ logging.getLogger("ocpp").setLevel(logging.INFO if config.LOG_OCPP_MESSAGES else
 
 async def main():
     await init_db()
+    if n := await core.backfill_auth_connectors():
+        logging.info("Added the charging point to %s older log entries", n)
     servers = [
         uvicorn.Server(uvicorn.Config(ocpp_app, host="0.0.0.0", port=config.OCPP_PORT,
                                       ws_ping_interval=60, ws_ping_timeout=60, log_level="warning")),

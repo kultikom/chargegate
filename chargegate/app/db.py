@@ -40,6 +40,7 @@ class Station(Base):
     site_id: Mapped[int | None] = mapped_column(ForeignKey("sites.id", ondelete="SET NULL"))
     approved: Mapped[bool] = mapped_column(Boolean, default=False)
     password_hash: Mapped[str | None] = mapped_column(String(200))
+    connector_names: Mapped[str | None] = mapped_column(String(200))  # "Left, Right" -> connector 1, 2
     ocpp_version: Mapped[str | None] = mapped_column(String(10))
     vendor: Mapped[str | None] = mapped_column(String(50))
     model: Mapped[str | None] = mapped_column(String(50))
@@ -53,6 +54,15 @@ class Station(Base):
     site: Mapped[Site | None] = relationship(back_populates="stations")
     connectors: Mapped[list[ConnectorStatus]] = relationship(
         cascade="all, delete-orphan", order_by="ConnectorStatus.connector_id")
+
+    def connector_label(self, connector_id: int | None) -> str:
+        """Name of a charging point, e.g. "Left" – falls back to "#1"."""
+        if not connector_id:
+            return ""
+        names = [n.strip() for n in (self.connector_names or "").split(",")]
+        if 0 < connector_id <= len(names) and names[connector_id - 1]:
+            return names[connector_id - 1]
+        return f"#{connector_id}"
 
 
 class ConnectorStatus(Base):
@@ -138,6 +148,7 @@ class AuthEvent(Base):
     tag_uid: Mapped[str] = mapped_column(String(40), index=True)
     result: Mapped[str] = mapped_column(String(20))  # Accepted | Blocked | Invalid
     reason: Mapped[str | None] = mapped_column(String(100))  # code, see i18n.REASONS
+    connector_id: Mapped[int | None] = mapped_column(Integer)  # known once charging starts
     employee_id: Mapped[int | None] = mapped_column(ForeignKey("employees.id", ondelete="SET NULL"))
     employee: Mapped[Employee | None] = relationship()
 

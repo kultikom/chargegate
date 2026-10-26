@@ -1,5 +1,5 @@
 name: ChargeGate
-version: "1.3.0"
+version: "1.4.0"
 slug: chargegate
 description: OCPP server for company-wide RFID charging access across multiple sites
 url: https://github.com/kultikom/chargegate

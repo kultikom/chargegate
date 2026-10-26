@@ -309,13 +309,17 @@ async def stations_page(request: Request, user=Depends(admin)):
 @web_app.post("/stations/save")
 async def station_save(request: Request, user=Depends(admin), id: str = Form(...),
                        name: str = Form(""), site_id: str = Form(""), password: str = Form(""),
-                       clear_password: str = Form(""), approved: str = Form("")):
+                       clear_password: str = Form(""), approved: str = Form(""),
+                       connector_names: str | None = Form(None)):
     sid = id.strip()
     async with Session() as s:
         st = await s.get(Station, sid) or Station(id=sid)
         st.name = name.strip() or None
         st.site_id = int(site_id) if site_id else None
         st.approved = bool(approved)
+        if connector_names is not None:
+            cleaned = ", ".join(n.strip() for n in connector_names.split(","))
+            st.connector_names = cleaned if cleaned.replace(",", "").strip() else None
         if password:
             st.password_hash = hash_password(password)
         elif clear_password:
@@ -583,7 +587,8 @@ async def transactions_csv(user=Depends(admin), month: str = "", site: str = "",
         w.writerow([local(t.started_at), local(t.stopped_at) if t.stopped_at else _("running"),
                     t.station.site.name if t.station and t.station.site else "",
                     (t.station.name or t.station_id) if t.station else t.station_id,
-                    t.connector_id or "", t.employee.name if t.employee else "",
+                    t.station.connector_label(t.connector_id) if t.station else (t.connector_id or ""),
+                    t.employee.name if t.employee else "",
                     (t.employee.email or "") if t.employee else "", t.tag_uid or "",
                     i18n.number(t.energy_kwh, 3) if t.energy_kwh is not None else "",
                     t.meter_start_wh or "", t.meter_stop_wh or "",
@@ -601,8 +606,8 @@ async def log_page(request: Request, user=Depends(admin), result: str = ""):
         if result:
             stmt = stmt.where(AuthEvent.result == result)
         events = (await s.execute(stmt)).scalars().all()
-        names = {st.id: st.name for st in (await s.execute(select(Station))).scalars().all()}
-    return render(request, "log.html", events=events, result=result, names=names)
+        stations = {st.id: st for st in (await s.execute(select(Station))).scalars().all()}
+    return render(request, "log.html", events=events, result=result, stations=stations)
 
 
 @web_app.get("/health")

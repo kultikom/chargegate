@@ -63,7 +63,7 @@ class ChargePoint201(CP201):
         uid = _token(id_token)
         status = emp_id = None
         if uid:
-            status, emp_id = await core.authorize(self.id, uid)
+            status, emp_id = await core.authorize(self.id, uid, (evse or {}).get("id"))
 
         tx = await core.find_transaction(self.id, tx_id)
         if tx is None:

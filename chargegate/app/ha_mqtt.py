@@ -224,6 +224,7 @@ class Bridge:
                 "station_name": st.name or st.id,
                 "site": st.site.name if st.site else None,
                 "connector": c,
+                "connector_label": st.connector_label(c) if (st.connector_names or "").strip() else None,
                 "connectors": len(connectors),
                 "online": online,
                 "status": cs.status,

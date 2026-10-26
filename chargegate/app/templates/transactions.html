@@ -32,7 +32,7 @@
       <td>{{ t.started_at|local }}</td>
       <td>{% if t.stopped_at %}{{ t.stopped_at|local('time') }}{% else %}<span class="pill Charging">{{ _("running") }}</span>{% endif %}</td>
       <td>{{ t.employee.name if t.employee else '' }}<br><span class="mono muted">{{ t.tag_uid or '' }}</span></td>
-      <td>{{ t.station.name or t.station_id }}<br><span class="muted">{{ t.station.site.name if t.station.site else '' }}{% if t.connector_id %} · #{{ t.connector_id }}{% endif %}</span></td>
+      <td>{{ t.station.name or t.station_id }}<br><span class="muted">{{ t.station.site.name if t.station.site else '' }}{% if t.connector_id %} · {{ t.station.connector_label(t.connector_id) }}{% endif %}</span></td>
       <td class="num">{{ t.energy_kwh|kwh }}{% if t.soc_last is not none %}<br><span class="muted" title="{{ _('Battery') }}">{% if t.soc_start is not none and t.soc_start < t.soc_last %}{{ t.soc_start|round|int }} → {% endif %}{{ t.soc_last|round|int }} %</span>{% endif %}</td>
       <td class="muted">{{ t.stop_reason or '' }}</td>
     </tr>

@@ -14,7 +14,7 @@
  *   show_employee: true           # optional
  *   show_soc: true                # optional: battery level, if the station reports it
  */
-const CG_VERSION = "1.3.0";
+const CG_VERSION = "1.4.0";
 
 const CG_TEXT = {
   en: {
@@ -193,7 +193,9 @@ class ChargeGateCard extends HTMLElement {
     return `
       <div class="point s-${state}" data-entity="${this._esc(p.entity_id)}">
         <div class="row1">
-          ${multi ? `<span class="num">${a.connector}</span>` : ""}
+          ${multi ? (a.connector_label
+            ? `<span class="lbl" title="${this._esc(a.connector_label)}">${this._esc(a.connector_label)}</span>`
+            : `<span class="num">${a.connector}</span>`) : ""}
           <span class="pill">${this._esc(this._t(state))}</span>
           <span class="who" title="${this._esc(employee)}">${this._esc(employee)}</span>
           ${this._soc(a, active)}
@@ -242,6 +244,9 @@ class ChargeGateCard extends HTMLElement {
       .row1 { display: flex; align-items: center; gap: 8px; min-width: 0; min-height: 24px; }
       .num { width: 20px; height: 20px; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center;
              font-size: .75em; font-weight: 600; color: var(--secondary-text-color); border: 1px solid var(--divider-color, rgba(127,127,127,.3)); flex: none; }
+      .lbl { font-size: .75em; font-weight: 600; color: var(--secondary-text-color); padding: 1px 7px; border-radius: 999px;
+             border: 1px solid var(--divider-color, rgba(127,127,127,.3)); white-space: nowrap; flex: none; max-width: 7em;
+             overflow: hidden; text-overflow: ellipsis; }
       .pill { font-size: .8em; font-weight: 600; padding: 2px 9px; border-radius: 999px; white-space: nowrap; flex: none;
               color: var(--cg-c); background: color-mix(in srgb, var(--cg-c) 16%, transparent); }
       .who { color: var(--primary-text-color); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; flex: 1; }

@@ -31,6 +31,7 @@
                 <select name="site_id"><option value="">–</option>
                   {% for s in sites %}<option value="{{ s.id }}" {{ 'selected' if s.id == st.site_id }}>{{ s.name }}</option>{% endfor %}
                 </select></div>
+              <div><label>{{ _("Charging point names") }}</label><input name="connector_names" value="{{ st.connector_names or '' }}" placeholder="{{ _('e.g. Left, Right') }}" title="{{ _('Comma-separated, in the order of the connector numbers 1, 2, …') }}"></div>
               <div><label>{{ _("New basic auth password") }}</label><input name="password" type="password" autocomplete="new-password" placeholder="{{ _('unchanged') if st.password_hash else _('optional') }}"></div>
             </div>
             <p>

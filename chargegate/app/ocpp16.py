@@ -48,7 +48,7 @@ class ChargePoint16(CP16):
 
     @on(Action.start_transaction)
     async def on_start(self, connector_id, id_tag, meter_start, timestamp, **kw):
-        status, emp_id = await core.authorize(self.id, id_tag)
+        status, emp_id = await core.authorize(self.id, id_tag, connector_id)
         tx = await core.start_transaction(self.id, connector_id, id_tag, float(meter_start),
                                           employee_id=emp_id, started_at=core.parse_ts(timestamp))
         await core.record_meter(self.id, connector_id, float(meter_start))

@@ -26,7 +26,7 @@
         </div>
         <div class="tags">
           {% for c in st.connectors if c.connector_id > 0 %}
-            <span class="pill {{ c.status }}" title="{{ c.error_code or '' }}">#{{ c.connector_id }} {{ c.status }}</span>
+            <span class="pill {{ c.status }}" title="{{ c.error_code or '' }}">{{ st.connector_label(c.connector_id) }} · {{ c.status }}</span>
           {% else %}<span class="meta">{{ _("no status yet") }}</span>{% endfor %}
         </div>
         <div class="meta">{{ _("last seen") }} {{ st.last_seen|ago }}</div>

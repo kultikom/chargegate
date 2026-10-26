@@ -12,18 +12,20 @@
 </form>
 <section class="card">
   <div class="table-wrap"><table>
-    <tr><th>{{ _("Time") }}</th><th>{{ _("Station") }}</th><th>{{ _("Tag") }}</th><th>{{ _("Employee") }}</th><th>{{ _("Result") }}</th><th>{{ _("Note") }}</th></tr>
+    <tr><th>{{ _("Time") }}</th><th>{{ _("Station") }}</th><th>{{ _("Charging point") }}</th><th>{{ _("Tag") }}</th><th>{{ _("Employee") }}</th><th>{{ _("Result") }}</th><th>{{ _("Note") }}</th></tr>
     {% for e in events %}
     <tr>
       <td>{{ e.ts|local('seconds') }}</td>
-      <td>{{ names.get(e.station_id) or e.station_id }}</td>
+      {% set st = stations.get(e.station_id) %}
+      <td>{{ (st.name if st else None) or e.station_id }}</td>
+      <td>{{ st.connector_label(e.connector_id) if st and e.connector_id else ('#' ~ e.connector_id if e.connector_id else '–') }}</td>
       <td class="mono">{{ e.tag_uid }}</td>
       <td>{{ e.employee.name if e.employee else '–' }}</td>
       <td><span class="pill {{ e.result }}">{{ e.result|result }}</span></td>
       <td class="muted">{{ e.reason|reason }}</td>
     </tr>
     {% else %}
-    <tr><td colspan="6" class="empty">{{ _("No entries yet.") }}</td></tr>
+    <tr><td colspan="7" class="empty">{{ _("No entries yet.") }}</td></tr>
     {% endfor %}
   </table></div>
 </section>

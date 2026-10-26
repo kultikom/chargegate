@@ -4,7 +4,7 @@ from __future__ import annotations
 import asyncio
 import logging
 import time
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 
 from sqlalchemy import select
 from sqlalchemy.orm import selectinload
@@ -54,8 +54,13 @@ def _reverse_bytes(uid: str) -> str | None:
     return "".join(uid[i:i + 2] for i in range(len(uid) - 2, -1, -2))
 
 
-async def authorize(station_id: str, raw_uid: str) -> tuple[str, int | None]:
-    """Check a tag. Returns (OCPP status, employee_id)."""
+async def authorize(station_id: str, raw_uid: str, connector_id: int | None = None) -> tuple[str, int | None]:
+    """Check a tag and log the check. Returns (OCPP status, employee_id).
+
+    With connector_id (the check that starts a session): if the same tag was checked at this
+    station shortly before without a connector (Authorize request), that log entry gets the
+    connector instead of a second entry being written.
+    """
     uid = normalize_uid(raw_uid)
     async with Session() as s:
         tag = (await s.execute(select(Tag).options(selectinload(Tag.employee))
@@ -77,11 +82,39 @@ async def authorize(station_id: str, raw_uid: str) -> tuple[str, int | None]:
         else:
             status, emp_id = "Accepted", tag.employee_id
 
-        s.add(AuthEvent(station_id=station_id, tag_uid=uid, result=status,
-                        reason=reason, employee_id=emp_id))
+        earlier = None
+        if connector_id:
+            earlier = (await s.execute(
+                select(AuthEvent).where(AuthEvent.station_id == station_id, AuthEvent.tag_uid == uid,
+                                        AuthEvent.connector_id.is_(None), AuthEvent.result == status,
+                                        AuthEvent.ts > utcnow() - timedelta(minutes=5))
+                .order_by(AuthEvent.ts.desc()).limit(1))).scalar_one_or_none()
+        if earlier:
+            earlier.connector_id = connector_id
+        else:
+            s.add(AuthEvent(station_id=station_id, tag_uid=uid, result=status, reason=reason,
+                            employee_id=emp_id, connector_id=connector_id))
         await s.commit()
     log.info("Authorize %s @ %s -> %s (%s)", uid, station_id, status, reason or "ok")
     return status, emp_id
+
+
+async def backfill_auth_connectors() -> int:
+    """Older log entries have no connector: take it from the session that started right after."""
+    async with Session() as s:
+        events = (await s.execute(select(AuthEvent).where(
+            AuthEvent.connector_id.is_(None), AuthEvent.result == "Accepted"))).scalars().all()
+        n = 0
+        for e in events:
+            tx = (await s.execute(select(Transaction).where(
+                Transaction.station_id == e.station_id, Transaction.tag_uid == e.tag_uid,
+                Transaction.started_at >= e.ts - timedelta(seconds=30),
+                Transaction.started_at <= e.ts + timedelta(minutes=5))
+                .order_by(Transaction.started_at).limit(1))).scalar_one_or_none()
+            if tx and tx.connector_id:
+                e.connector_id, n = tx.connector_id, n + 1
+        await s.commit()
+    return n
 
 
 # --- Station state --------------------------------------------------------------------
