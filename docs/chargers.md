@@ -22,7 +22,10 @@ charging keeps working if the server or the VPN is down, and blocked tags stop w
 **First station of a new model:** enable *Log OCPP messages* and watch the log while you present a
 tag and start charging. Most issues (wrong ID, tag format, missing meter values) are visible there.
 
-## Compleo ducto (Solo / Duo), firmware 6.5
+## Compleo ducto (Solo / Duo)
+
+**Tested in production:** Compleo Duo SAM, Control Software 6.7.0. Setup notes are based on the
+firmware 6.5 guide; menu names were identical.
 
 Settings are made in the ducto web interface.
 
@@ -52,9 +55,16 @@ Settings are made in the ducto web interface.
 **Settings › Connectors**: *Connector ID (OCPP)* 1 and 2 on a Duo. A Duo shows up as **one** station
 with two connectors.
 
-**Left or right?** OCPP only knows connector numbers. Plug in a car or check the ducto web interface
-to see which side is connector 1, then enter names like `Left, Right` under *Stations › Edit ›
-Charging point names* – they appear in the log, sessions and the dashboard.
+**Left or right?** OCPP only knows connector numbers, and the mapping is **not** fixed: on our first
+Duo the side labelled *Left* in the ducto dashboard was OCPP connector **2**. Check each Duo once – plug
+in a car and see which connector switches to *Charging* in ChargeGate (or compare *Settings ›
+Connectors › Connector ID (OCPP)*), then enter the names in that order under *Stations › Edit ›
+Charging point names*, e.g. `Right, Left`.
+
+**Power readings:** the ducto only sends power (`Power.Active.Import`) after ChargeGate has set
+`MeterValuesSampledData` – done automatically on every connection since ChargeGate 1.4.1. The new
+setting may only apply from the next charging session; until then ChargeGate estimates the power
+from the energy register.
 
 Load management (master/slave) is independent of this – every ducto connects to ChargeGate itself.
 
