@@ -177,7 +177,8 @@ DE = {
     "By employee": "Nach Mitarbeiter", "Start": "Start", "End": "Ende", "Energy": "Energie",
     "Reason": "Grund", "running": "läuft", "No sessions in this period.": "Keine Ladevorgänge in diesem Zeitraum.",
     "Connector": "Anschluss", "Meter start (Wh)": "Zähler Start (Wh)", "Meter end (Wh)": "Zähler Ende (Wh)",
-    "Stop reason": "Stoppgrund", "kWh": "kWh", "Battery": "Akkustand", "Period": "Zeitraum",
+    "Stop reason": "Stoppgrund", "kWh": "kWh", "Battery": "Akkustand", "Period": "Zeitraum", "Reset": "Zurücksetzen",
+    "{n} of {total} employees match “{q}”": "{n} von {total} Mitarbeitern passen zu „{q}“",
     "Energy dashboard": "Energie-Dashboard",
     "Counts in the Energy dashboard of this Home Assistant": "Zählt im Energie-Dashboard dieses Home Assistant",
     "Tick the sites whose charging is part of this building's consumption – only their stations can be added to the Energy dashboard of this Home Assistant.":

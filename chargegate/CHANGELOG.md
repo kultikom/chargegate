@@ -1,5 +1,13 @@
 # Changelog
 
+## 1.7.1
+
+- **Fix: employee search** matched almost everybody – the query was also compared with tag UIDs
+  after removing all non-hex letters ("Jonas" became "A"). Tag UIDs are now only searched when the
+  query looks like a UID (at least 4 hex digits, colons/spaces allowed).
+- *Employees & tags*: the form for new employees is now above the list; the search shows how many
+  employees match and has a *Reset* button
+
 ## 1.7.0
 
 - **Energy dashboard per site:** under *Stations › Sites* each site has a switch *Energy dashboard*.

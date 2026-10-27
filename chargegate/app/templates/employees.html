@@ -30,10 +30,22 @@
 {% endif %}
 
 <section class="card">
+  <h2>{{ _("Add employee manually") }}</h2>
+  <form method="post" action="{{ base }}/employees/add" class="row">
+    <div><label>{{ _("Name") }}</label><input name="name" required></div>
+    <div><label>{{ _("Email") }}</label><input name="email" type="email"></div>
+    <div><label>{{ _("Tag UID") }}</label><input name="uid" placeholder="{{ _('optional') }}"></div>
+    <button style="flex:0">{{ _("Add") }}</button>
+  </form>
+</section>
+
+<section class="card">
   <form method="get" class="row" style="margin-bottom:12px">
     <div><input name="q" value="{{ q }}" placeholder="{{ _('Search by name, email or tag UID') }}"></div>
     <button style="flex:0">{{ _("Search") }}</button>
+    {% if q %}<a class="btn ghost" style="flex:0;padding:8px 14px" href="{{ base }}/employees">{{ _("Reset") }}</a>{% endif %}
   </form>
+  {% if q %}<p class="muted" style="margin:-4px 0 10px">{{ _("{n} of {total} employees match “{q}”", n=employees|length, total=all_emps|length, q=q) }}</p>{% endif %}
   <div class="table-wrap"><table>
     <tr><th>{{ _("Name") }}</th><th>{{ _("Tags") }}</th><th>{{ _("Source") }}</th><th></th></tr>
     {% for e in employees %}
@@ -93,29 +105,16 @@
   </table></div>
 </section>
 
-<div class="cols">
-  <section class="card">
-    <h2>{{ _("Add employee manually") }}</h2>
-    <form method="post" action="{{ base }}/employees/add">
-      <div class="row">
-        <div><label>{{ _("Name") }}</label><input name="name" required></div>
-        <div><label>{{ _("Email") }}</label><input name="email" type="email"></div>
-        <div><label>{{ _("Tag UID") }}</label><input name="uid" placeholder="{{ _('optional') }}"></div>
-      </div>
-      <p><button>{{ _("Add") }}</button></p>
-    </form>
-  </section>
 
-  <section class="card">
-    <h2>Entra ID</h2>
-    {% if entra_sync %}
-      <p>{{ _("Employees and tags are imported from the Entra group. Tag UIDs are read from the attribute") }} <code>{{ rfid_attr }}</code>.</p>
-      {% if sync %}<p class="muted">{{ _("Last run") }} {{ sync.last_run|local }}:
-        <span class="pill {{ 'ok' if sync.ok else 'err' }}">{{ _('ok') if sync.ok else _('error') }}</span><br>{{ sync.message|sync_summary }}</p>{% endif %}
-      <form method="post" action="{{ base }}/sync"><button>{{ _("Sync now") }}</button></form>
-    {% else %}
-      <p class="muted">{{ _("Not configured. Add the Entra settings to import employees from a group automatically and block them when they leave.") }}</p>
-    {% endif %}
-  </section>
-</div>
+<section class="card">
+  <h2>Entra ID</h2>
+  {% if entra_sync %}
+    <p>{{ _("Employees and tags are imported from the Entra group. Tag UIDs are read from the attribute") }} <code>{{ rfid_attr }}</code>.</p>
+    {% if sync %}<p class="muted">{{ _("Last run") }} {{ sync.last_run|local }}:
+      <span class="pill {{ 'ok' if sync.ok else 'err' }}">{{ _('ok') if sync.ok else _('error') }}</span><br>{{ sync.message|sync_summary }}</p>{% endif %}
+    <form method="post" action="{{ base }}/sync"><button>{{ _("Sync now") }}</button></form>
+  {% else %}
+    <p class="muted">{{ _("Not configured. Add the Entra settings to import employees from a group automatically and block them when they leave.") }}</p>
+  {% endif %}
+</section>
 {% endblock %}

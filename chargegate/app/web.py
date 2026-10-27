@@ -400,10 +400,16 @@ async def employees_page(request: Request, user=Depends(admin), q: str = ""):
     async with Session() as s:
         stmt = select(Employee).options(selectinload(Employee.tags)).order_by(
             Employee.active.desc(), Employee.name)
+        q = q.strip()
         if q:
             like = f"%{q}%"
-            stmt = stmt.where(Employee.name.ilike(like) | Employee.email.ilike(like)
-                              | Employee.tags.any(Tag.uid.ilike(f"%{normalize_uid(q)}%")))
+            cond = Employee.name.ilike(like) | Employee.email.ilike(like)
+            # Search tag UIDs only if the query looks like one – otherwise "Jonas" would be
+            # reduced to its hex letters ("A") and match almost every tag
+            hexq = re.sub(r"[\s:.-]", "", q)
+            if len(hexq) >= 4 and re.fullmatch(r"[0-9A-Fa-f]+", hexq):
+                cond = cond | Employee.tags.any(Tag.uid.ilike(f"%{hexq.upper()}%"))
+            stmt = stmt.where(cond)
         employees = (await s.execute(stmt)).scalars().all()
         all_emps = (await s.execute(select(Employee).order_by(Employee.name))).scalars().all()
         unknown = (await s.execute(
