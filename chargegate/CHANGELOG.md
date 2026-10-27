@@ -1,5 +1,10 @@
 # Changelog
 
+## 1.8.1
+
+- Dashboard card: the **site is chosen in the card editor** (edit mode) – viewers can't switch it.
+  Site tabs are now **off by default** and only appear if *Viewers may switch sites* is ticked.
+
 ## 1.8.0
 
 - **Dashboard card: site tabs.** With stations at several sites the card shows tabs

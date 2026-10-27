@@ -8,16 +8,16 @@
  *
  *   type: custom:chargegate-card
  *   title: Charging points        # optional
- *   site: Head office             # optional: only stations of this site (no site tabs)
- *   sites: [Head office, Depot]   # optional: offer only these sites as tabs
- *   default_site: Head office     # optional: tab selected at first (later: the viewer's last choice)
- *   show_site_tabs: true          # optional: tabs to switch between sites (shown if there are several)
+ *   site: Head office             # optional: only stations of this site – set in the card editor
+ *   sites: [Head office, Depot]   # optional: only stations of these sites
+ *   show_site_tabs: false         # optional: let viewers switch between sites with tabs (default: off)
+ *   default_site: Head office     # optional, with tabs: tab selected at first
  *   stations: [DUO-01, EVE-01]    # optional: only these station IDs, in this order
  *   columns: 2                    # optional: fixed number of columns (default: responsive)
  *   show_employee: true           # optional
  *   show_soc: true                # optional: battery level, if the station reports it
  */
-const CG_VERSION = "1.8.0";
+const CG_VERSION = "1.8.1";
 
 const CG_TEXT = {
   en: {
@@ -28,7 +28,8 @@ const CG_TEXT = {
     charging_now: "{n} charging", done_now: "{n} done", of: "of", kw: "kW", since: "since", soc: "Battery",
     all_sites: "All", ed_title: "Title", ed_site: "Site", ed_all_tabs: "All sites (switch with tabs)",
     ed_columns: "Columns", ed_auto: "automatic", ed_employee: "Show employee", ed_soc: "Show battery level",
-    ed_tabs: "Show site tabs", ed_default: "Tab selected at first",
+    ed_tabs: "Viewers may switch sites (tabs)", ed_default: "Tab selected at first",
+    ed_all: "All sites",
   },
   de: {
     title: "Ladepunkte", offline: "Offline", free: "Frei", charging: "Lädt",
@@ -38,13 +39,14 @@ const CG_TEXT = {
     charging_now: "{n} laden", done_now: "{n} fertig", of: "von", kw: "kW", since: "seit", soc: "Akkustand",
     all_sites: "Alle", ed_title: "Titel", ed_site: "Standort", ed_all_tabs: "Alle Standorte (mit Reitern umschalten)",
     ed_columns: "Spalten", ed_auto: "automatisch", ed_employee: "Mitarbeiter anzeigen", ed_soc: "Akkustand anzeigen",
-    ed_tabs: "Standort-Reiter anzeigen", ed_default: "Zuerst gewählter Reiter",
+    ed_tabs: "Betrachter dürfen den Standort umschalten (Reiter)", ed_default: "Zuerst gewählter Reiter",
+    ed_all: "Alle Standorte",
   },
 };
 
 class ChargeGateCard extends HTMLElement {
   setConfig(config) {
-    this._config = { show_employee: true, show_soc: true, show_site_tabs: true, ...(config || {}) };
+    this._config = { show_employee: true, show_soc: true, show_site_tabs: false, ...(config || {}) };
     this._sig = null;
     this._selected = undefined;               // site chosen with the tabs (null = all)
     if (!this.shadowRoot) this.attachShadow({ mode: "open" });
@@ -74,7 +76,7 @@ class ChargeGateCard extends HTMLElement {
   }
 
   _tabsActive(sites) {
-    return !this._config.site && this._config.show_site_tabs !== false && sites.length > 1;
+    return !this._config.site && this._config.show_site_tabs === true && sites.length > 1;
   }
 
   _currentSite(sites) {
@@ -438,11 +440,11 @@ class ChargeGateCardEditor extends HTMLElement {
       <div class="f">
         <label>${this._esc(this._t("ed_title"))}<input type="text" data-key="title" value="${this._esc(c.title || "")}" placeholder="${this._esc(this._t("title"))}"></label>
         <label>${this._esc(this._t("ed_site"))}<select data-key="site">
-          ${opt("", this._t("ed_all_tabs"), !c.site)}${sites.map((s) => opt(s, s, c.site === s)).join("")}</select></label>
-        ${c.site ? "" : `<label>${this._esc(this._t("ed_default"))}<select data-key="default_site">
+          ${opt("", this._t("ed_all"), !c.site)}${sites.map((s) => opt(s, s, c.site === s)).join("")}</select></label>
+        ${c.site ? "" : check("show_site_tabs", false)}
+        ${c.site || !c.show_site_tabs ? "" : `<label>${this._esc(this._t("ed_default"))}<select data-key="default_site">
           ${opt("", this._t("all_sites"), !c.default_site)}${sites.map((s) => opt(s, s, c.default_site === s)).join("")}</select></label>`}
         <label>${this._esc(this._t("ed_columns"))}<input type="number" min="1" max="6" data-key="columns" value="${this._esc(c.columns || "")}" placeholder="${this._esc(this._t("ed_auto"))}"></label>
-        ${c.site ? "" : check("show_site_tabs", true)}
         ${check("show_employee", true)}
         ${check("show_soc", true)}
       </div>`;
@@ -460,7 +462,8 @@ class ChargeGateCardEditor extends HTMLElement {
     if (key === "site" && value) { delete cfg.default_site; delete cfg.show_site_tabs; }
     this._config = cfg;
     this.dispatchEvent(new CustomEvent("config-changed", { detail: { config: cfg }, bubbles: true, composed: true }));
-    if (key === "site") this._render();
+    if (key === "show_site_tabs" && !value) delete cfg.default_site;
+    if (key === "site" || key === "show_site_tabs") this._render();
   }
 }
 

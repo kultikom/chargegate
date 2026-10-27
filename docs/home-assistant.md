@@ -53,10 +53,10 @@ the card to `/config/www/chargegate/`, registers it as a dashboard resource and 
 **Charging points** once. If the `www` folder did not exist before, Home Assistant shows a notification
 asking for one restart. The dashboard is yours afterwards – edit or delete it, it won't be recreated.
 
-**Sites:** if your stations are at several sites, the card shows **tabs** to switch between them
-(*All · Site A · Site B …*, each with the number of busy charging points). Every browser remembers its
-choice, so a wall tablet at one site keeps showing that site. To pin a card to one site, pick it in
-the card's visual editor (or `site:` in YAML) – the tabs then disappear.
+**Sites:** in edit mode, open the card and pick a **Site** in its editor (or `site:` in YAML) – the
+card then only shows that site's stations, and viewers can't change it. Use one card per site, e.g. a
+dashboard for each location. Optional: tick *Viewers may switch sites* to show tabs
+(*All · Site A · Site B …*) instead; every browser then remembers its choice.
 
 **Standalone / manual:** copy `chargegate/app/static/chargegate-card.js` to `/config/www/chargegate/`,
 add `/local/chargegate/chargegate-card.js` as a *JavaScript module* under
@@ -65,10 +65,10 @@ add `/local/chargegate/chargegate-card.js` as a *JavaScript module* under
 ```yaml
 type: custom:chargegate-card
 title: Charging points        # optional
-site: Head office             # optional: only stations of this site (no tabs)
-sites: [Head office, Depot]   # optional: offer only these sites as tabs
-default_site: Head office     # optional: tab selected at first (afterwards: the browser's last choice)
-show_site_tabs: true          # optional: tabs to switch between sites
+site: Head office             # optional: only stations of this site
+sites: [Head office, Depot]   # optional: only stations of these sites
+show_site_tabs: false         # optional: let viewers switch between sites with tabs
+default_site: Head office     # optional, with tabs: tab selected at first
 stations: [DUO-01, EVE-01]    # optional: only these station IDs, in this order
 columns: 2                    # optional: fixed number of columns (default: responsive)
 show_employee: true           # optional
@@ -116,8 +116,7 @@ If you had already added stations of another site, remove them there. Home Assis
 their old statistics under *Developer tools › Statistics* as having no state class any more –
 *Fix issue* there removes them.
 
-The dashboard then shows how much energy goes into each charging point. The dashboard then shows how much energy goes into each
-charging point. The sensors use the stations' energy register, so nothing is lost when Home
+The dashboard then shows how much energy goes into each charging point. The sensors use the stations' energy register, so nothing is lost when Home
 Assistant or ChargeGate restarts.
 
 Tip: for a smooth power reading, lower *Meter value interval* (default 60 s). Stations only send
