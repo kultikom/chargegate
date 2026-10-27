@@ -38,7 +38,7 @@ def pick_language(cookie_header: str, accept_language: str) -> str:
     return "en"
 
 
-_EN = {"phase_offline": "Offline", "phase_free": "Free", "phase_connected": "Connected",
+_EN = {"Superseded": "no stop received, ended by the next session","phase_offline": "Offline", "phase_free": "Free", "phase_connected": "Connected",
        "phase_charging": "Charging", "phase_done": "Done", "phase_paused": "Paused",
        "phase_fault": "Fault", "phase_unavailable": "Unavailable", "phase_reserved": "Reserved"}
 
@@ -54,8 +54,8 @@ def number(value: float, digits: int) -> str:
 
 
 _DATE = {
-    "en": {"full": "%Y-%m-%d %H:%M", "short": "%m-%d %H:%M", "time": "%H:%M", "seconds": "%Y-%m-%d %H:%M:%S"},
-    "de": {"full": "%d.%m.%Y %H:%M", "short": "%d.%m. %H:%M", "time": "%H:%M", "seconds": "%d.%m.%Y %H:%M:%S"},
+    "en": {"full": "%Y-%m-%d %H:%M", "short": "%m-%d %H:%M", "time": "%H:%M", "seconds": "%Y-%m-%d %H:%M:%S", "date": "%Y-%m-%d"},
+    "de": {"full": "%d.%m.%Y %H:%M", "short": "%d.%m. %H:%M", "time": "%H:%M", "seconds": "%d.%m.%Y %H:%M:%S", "date": "%d.%m.%Y"},
 }
 
 
@@ -177,7 +177,22 @@ DE = {
     "By employee": "Nach Mitarbeiter", "Start": "Start", "End": "Ende", "Energy": "Energie",
     "Reason": "Grund", "running": "läuft", "No sessions in this period.": "Keine Ladevorgänge in diesem Zeitraum.",
     "Connector": "Anschluss", "Meter start (Wh)": "Zähler Start (Wh)", "Meter end (Wh)": "Zähler Ende (Wh)",
-    "Stop reason": "Stoppgrund", "kWh": "kWh", "Battery": "Akkustand", "Charging point": "Ladepunkt",
+    "Stop reason": "Stoppgrund", "kWh": "kWh", "Battery": "Akkustand", "Period": "Zeitraum", "Superseded": "ohne Stopp, beendet durch Folgevorgang",
+    "sent afterwards": "nachgemeldet", "Sent by the station afterwards on {date}": "Von der Wallbox nachgemeldet am {date}",
+    "Delete selected": "Ausgewählte löschen", "Delete all {n} shown": "Alle {n} angezeigten löschen",
+    "Delete the selected sessions?": "Ausgewählte Ladevorgänge löschen?",
+    "Delete all {n} sessions shown with this filter? This cannot be undone.":
+        "Alle {n} Ladevorgänge dieses Filters löschen? Das kann nicht rückgängig gemacht werden.",
+    "select all": "alle auswählen", "{n} selected": "{n} ausgewählt", "No sessions selected": "Keine Ladevorgänge ausgewählt",
+    "Sessions deleted: {n}": "Ladevorgänge gelöscht: {n}", "Clean up": "Aufräumen",
+    "Delete everything before": "Alles löschen vor dem", "finished sessions": "abgeschlossene Ladevorgänge",
+    "log entries": "Protokolleinträge", "Please enter a date": "Bitte ein Datum angeben",
+    "Delete everything before this date? This cannot be undone.":
+        "Alles vor diesem Datum löschen? Das kann nicht rückgängig gemacht werden.",
+    "Deleted before {date} – sessions: {tx}, log entries: {log}":
+        "Vor dem {date} gelöscht – Ladevorgänge: {tx}, Protokolleinträge: {log}",
+    "Tip: a backup of the database is part of every Home Assistant backup.":
+        "Tipp: Die Datenbank ist in jedem Home-Assistant-Backup enthalten.", "Charging point": "Ladepunkt",
     "Charging point names": "Ladepunkt-Namen", "e.g. Left, Right": "z. B. Links, Rechts",
     "Comma-separated, in the order of the connector numbers 1, 2, …":
         "Mit Komma getrennt, in der Reihenfolge der Anschlussnummern 1, 2, …", "Average per session": "Ø pro Ladevorgang",

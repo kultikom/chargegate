@@ -22,6 +22,8 @@ ENERGY = "Energy.Active.Import.Register"
 POWER = "Power.Active.Import"
 SOC = "SoC"
 CHARGING_STATES = {"Charging", "Occupied", "SuspendedEV", "SuspendedEVSE"}
+LATE_AFTER = timedelta(minutes=15)  # older station timestamps = sent afterwards from the offline queue
+EARLIEST = datetime(2010, 1, 1)      # station clocks before this are wrong (no NTP)
 IDLE_POWER_W = 100        # below this a car is not really charging
 DONE_AFTER_S = config.DONE_AFTER_S  # no power for this long after energy was delivered -> "done"
 DONE_MIN_KWH = 0.05       # a session must have delivered at least this much to count as "done"
@@ -57,12 +59,14 @@ def _reverse_bytes(uid: str) -> str | None:
     return "".join(uid[i:i + 2] for i in range(len(uid) - 2, -1, -2))
 
 
-async def authorize(station_id: str, raw_uid: str, connector_id: int | None = None) -> tuple[str, int | None]:
+async def authorize(station_id: str, raw_uid: str, connector_id: int | None = None,
+                    ts: datetime | None = None) -> tuple[str, int | None]:
     """Check a tag and log the check. Returns (OCPP status, employee_id).
 
     With connector_id (the check that starts a session): if the same tag was checked at this
     station shortly before without a connector (Authorize request), that log entry gets the
     connector instead of a second entry being written.
+    ts: the station's time of the check – for sessions sent afterwards from the offline queue.
     """
     uid = normalize_uid(raw_uid)
     async with Session() as s:
@@ -86,7 +90,7 @@ async def authorize(station_id: str, raw_uid: str, connector_id: int | None = No
             status, emp_id = "Accepted", tag.employee_id
 
         earlier = None
-        if connector_id:
+        if connector_id and not is_late(ts):
             earlier = (await s.execute(
                 select(AuthEvent).where(AuthEvent.station_id == station_id, AuthEvent.tag_uid == uid,
                                         AuthEvent.connector_id.is_(None), AuthEvent.result == status,
@@ -96,7 +100,7 @@ async def authorize(station_id: str, raw_uid: str, connector_id: int | None = No
             earlier.connector_id = connector_id
         else:
             s.add(AuthEvent(station_id=station_id, tag_uid=uid, result=status, reason=reason,
-                            employee_id=emp_id, connector_id=connector_id))
+                            employee_id=emp_id, connector_id=connector_id, ts=ts or utcnow()))
         await s.commit()
     log.info("Authorize %s @ %s -> %s (%s)", uid, station_id, status, reason or "ok")
     return status, emp_id
@@ -156,9 +160,14 @@ async def set_connector_status(station_id: str, connector_id: int, status: str,
 
 
 async def record_meter(station_id: str, connector_id: int | None, energy_wh: float | None,
-                       power_w: float | None = None, soc: float | None = None) -> None:
-    """Remember the latest energy register / power / battery reading per connector."""
-    if not connector_id or (energy_wh is None and power_w is None and soc is None):
+                       power_w: float | None = None, soc: float | None = None,
+                       ts: datetime | None = None) -> None:
+    """Remember the latest energy register / power / battery reading per connector.
+
+    Readings sent afterwards (old timestamp) never overwrite the live state – an old meter
+    reading would make the energy register jump backwards in Home Assistant.
+    """
+    if not connector_id or (energy_wh is None and power_w is None and soc is None) or is_late(ts):
         return
     async with Session() as s:
         cs = await s.get(ConnectorStatus, (station_id, connector_id))
@@ -229,13 +238,26 @@ def session_phase(cs, tx, online: bool, now=None) -> str:
 async def start_transaction(station_id: str, connector_id: int | None, raw_uid: str | None,
                             meter_wh: float | None, ocpp_tx_id: str | None = None,
                             employee_id: int | None = None,
-                            started_at: datetime | None = None) -> Transaction:
+                            started_at: datetime | None = None,
+                            stopped_at: datetime | None = None, meter_stop_wh: float | None = None,
+                            stop_reason: str | None = None) -> Transaction:
+    started_at = started_at or utcnow()
     async with Session() as s:
+        if connector_id:
+            # A new session on this connector ends any older one still open (its stop got lost)
+            stale = (await s.execute(select(Transaction).where(
+                Transaction.station_id == station_id, Transaction.connector_id == connector_id,
+                Transaction.stopped_at.is_(None), Transaction.started_at < started_at))).scalars().all()
+            for old in stale:
+                old.stopped_at, old.stop_reason = started_at, "Superseded"
+                log.info("%s: session %s had no stop – closed by the next session", station_id, old.ocpp_tx_id)
         tx = Transaction(station_id=station_id, connector_id=connector_id,
-                         started_at=started_at or utcnow(),
+                         started_at=started_at, late=is_late(started_at),
+                         stopped_at=stopped_at, meter_stop_wh=meter_stop_wh, stop_reason=stop_reason,
                          tag_uid=normalize_uid(raw_uid) if raw_uid else None,
                          employee_id=employee_id, meter_start_wh=meter_wh,
-                         meter_last_wh=meter_wh, ocpp_tx_id=ocpp_tx_id)
+                         meter_last_wh=meter_stop_wh if meter_stop_wh is not None else meter_wh,
+                         ocpp_tx_id=ocpp_tx_id)
         s.add(tx)
         await s.flush()
         if tx.ocpp_tx_id is None:          # OCPP 1.6: our primary key is the transactionId
@@ -273,18 +295,52 @@ async def update_transaction(station_id: str, ocpp_tx_id: str, **fields) -> Tran
 
 
 def parse_ts(value: str | None) -> datetime:
-    """Use the station's timestamp (matters for offline transactions), else server time."""
+    """The station's timestamp – it matters for sessions sent afterwards from the offline queue,
+    which can be months or years old. Only clearly wrong clocks fall back to server time."""
     if value:
         try:
-            dt = datetime.fromisoformat(value.replace("Z", "+00:00"))
+            dt = datetime.fromisoformat(str(value).replace("Z", "+00:00"))
             if dt.tzinfo:
                 dt = dt.astimezone(UTC).replace(tzinfo=None)
-            # Ignore implausible clocks (station without NTP)
-            if abs((dt - utcnow()).days) < 30:
+            if EARLIEST <= dt <= utcnow() + timedelta(days=1):
                 return dt
+            log.warning("Ignoring implausible station time %s", value)
         except ValueError:
             pass
     return utcnow()
+
+
+def is_late(ts: datetime | None) -> bool:
+    """True for a station timestamp that is clearly in the past (sent afterwards)."""
+    return ts is not None and ts < utcnow() - LATE_AFTER
+
+
+def meter_values_ts(meter_values: list | None) -> datetime | None:
+    """Latest timestamp of a list of meter values."""
+    stamps = [parse_ts(mv.get("timestamp")) for mv in meter_values or [] if mv.get("timestamp")]
+    return max(stamps) if stamps else None
+
+
+def transaction_begin(transaction_data: list | None) -> tuple[datetime | None, float | None]:
+    """Start time and meter reading of a session from StopTransaction's transactionData."""
+    begin = [mv for mv in transaction_data or []
+             if any(sv.get("context") == "Transaction.Begin" for sv in mv.get("sampled_value", []))]
+    first = begin[0] if begin else (sorted(transaction_data, key=lambda mv: mv.get("timestamp", ""))[0]
+                                    if transaction_data else None)
+    if not first:
+        return None, None
+    return parse_ts(first.get("timestamp")), energy_wh_from_meter_values([first])
+
+
+async def lookup_employee(raw_uid: str | None) -> int | None:
+    """Employee of a tag without logging a check (for sessions reconstructed afterwards)."""
+    if not raw_uid:
+        return None
+    uid = normalize_uid(raw_uid)
+    async with Session() as s:
+        tag = (await s.execute(select(Tag).where(Tag.uid.in_([uid, _reverse_bytes(uid) or uid]))))
+        tag = tag.scalars().first()
+        return tag.employee_id if tag else None
 
 
 # --- Meter values ---------------------------------------------------------------------

@@ -83,6 +83,11 @@ Menu names vary between firmware and installer versions.
 
 Disable the network connection you don't use (LAN or cellular) and restart the station afterwards.
 
+**Offline queue:** an Alfen that has been running without a backend keeps its sessions and sends all
+of them – possibly years back – right after connecting to ChargeGate. They are stored with their real
+date and marked *sent afterwards*; delete them under *Sessions* (filter by station and period, or
+*Clean up*) if you don't need them.
+
 The **Pro-line DE** is the variant compliant with German calibration law (Eichrecht). It additionally
 sends signed meter values (`SignedData`). ChargeGate ignores these and uses the regular energy
 register – fine for internal reporting. Compliant billing would require storing the signed records.

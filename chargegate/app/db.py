@@ -6,7 +6,7 @@ import hmac
 import os
 from datetime import UTC, datetime
 
-from sqlalchemy import (Boolean, DateTime, Float, ForeignKey, Integer, String,
+from sqlalchemy import (Boolean, and_, or_, DateTime, Float, ForeignKey, Integer, String,
                         UniqueConstraint)
 from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
@@ -130,6 +130,8 @@ class Transaction(Base):
     meter_stop_wh: Mapped[float | None] = mapped_column(Float)
     soc_start: Mapped[float | None] = mapped_column(Float)   # battery %, only if the station reports it
     soc_last: Mapped[float | None] = mapped_column(Float)
+    received_at: Mapped[datetime | None] = mapped_column(DateTime, default=utcnow)  # when the server learned of it
+    late: Mapped[bool | None] = mapped_column(Boolean, default=False)  # reported afterwards (offline queue)
     stop_reason: Mapped[str | None] = mapped_column(String(50))
     station: Mapped[Station] = relationship()
     employee: Mapped[Employee | None] = relationship()
@@ -140,6 +142,16 @@ class Transaction(Base):
         if self.meter_start_wh is None or end is None:
             return None
         return round(max(end - self.meter_start_wh, 0) / 1000, 3)
+
+
+def running_clause():
+    """SQL condition for sessions that are really running right now.
+
+    Sessions sent afterwards from a station's offline queue stay open until their stop
+    arrives a moment later – they are not running and must not show up as such.
+    """
+    return and_(Transaction.stopped_at.is_(None),
+                or_(Transaction.late.is_(None), Transaction.late.is_(False)))
 
 
 class AuthEvent(Base):

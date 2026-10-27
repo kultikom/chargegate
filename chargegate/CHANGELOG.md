@@ -1,5 +1,19 @@
 # Changelog
 
+## 1.6.0
+
+- **Fix: sessions sent afterwards keep their real date.** Stations with an offline queue (seen on an
+  Alfen Eve that replayed sessions back to 2022) send old sessions when they connect. ChargeGate
+  ignored timestamps older than 30 days and stored them with the current time. Now the station's time
+  is used (anything from 2010 up to one day ahead); such sessions are marked **sent afterwards**.
+- Old meter readings from the queue no longer overwrite the live energy register (which made the
+  Home Assistant energy sensor jump backwards)
+- A stop for a session that started under a previous backend is rebuilt from its `transactionData`
+- A new session on a connector closes an older one that never received its stop
+- **Deleting sessions:** tick sessions and delete them, or delete everything matching the current
+  filter; *Clean up* deletes finished sessions and/or log entries before a date
+- *Sessions* page: filter by station, period list contains every month with data plus *all*
+
 ## 1.5.0
 
 - **"Done" state:** a car that has charged and then drawn no power for 3 minutes is shown as

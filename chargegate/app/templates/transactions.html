@@ -2,13 +2,17 @@
 {% block content %}
 <h1>{{ _("Sessions") }}</h1>
 <form method="get" class="row" style="margin:12px 0 20px">
-  <div><label>{{ _("Month") }}</label><input type="month" name="month" value="{{ month }}"></div>
+  <div><label>{{ _("Period") }}</label><select name="month">
+    <option value="all" {{ 'selected' if month == 'all' }}>{{ _("all") }}</option>
+    {% for m in months %}<option value="{{ m }}" {{ 'selected' if month == m }}>{{ m|month_name }}</option>{% endfor %}</select></div>
   <div><label>{{ _("Site") }}</label><select name="site"><option value="">{{ _("all") }}</option>
     {% for s in sites %}<option value="{{ s.id }}" {{ 'selected' if site == s.id|string }}>{{ s.name }}</option>{% endfor %}</select></div>
+  <div><label>{{ _("Station") }}</label><select name="station"><option value="">{{ _("all") }}</option>
+    {% for st in stations %}<option value="{{ st.id }}" {{ 'selected' if station == st.id }}>{{ st.name or st.id }}{{ ' (' ~ st.id ~ ')' if st.name }}</option>{% endfor %}</select></div>
   <div><label>{{ _("Employee") }}</label><select name="employee"><option value="">{{ _("all") }}</option>
     {% for e in employees %}<option value="{{ e.id }}" {{ 'selected' if employee == e.id|string }}>{{ e.name }}{{ '' if e.active else ' (' ~ _('deactivated') ~ ')' }}</option>{% endfor %}</select></div>
   <button style="flex:0">{{ _("Show") }}</button>
-  <a class="btn ghost" style="flex:0;padding:8px 14px" href="{{ base }}/transactions.csv?month={{ month }}&site={{ site }}&employee={{ employee }}">{{ _("CSV export") }}</a>
+  <a class="btn ghost" style="flex:0;padding:8px 14px" href="{{ base }}/transactions.csv?{{ query }}">{{ _("CSV export") }}</a>
 </form>
 
 <div class="grid" style="margin-bottom:20px">
@@ -24,21 +28,57 @@
   {% endif %}
 </div>
 
+<form method="post" action="{{ base }}/transactions/delete" id="tx-form">
+  <input type="hidden" name="month" value="{{ month }}"><input type="hidden" name="site" value="{{ site }}">
+  <input type="hidden" name="employee" value="{{ employee }}"><input type="hidden" name="station" value="{{ station }}">
 <section class="card">
+  {% if txs %}
+  <div class="row" style="align-items:center;margin-bottom:10px">
+    <div class="muted" style="font-size:13px" id="sel-info"></div>
+    <button class="ghost danger" style="flex:0" name="scope" value="selected"
+      onclick="return checkedCount() > 0 && confirm({{ _('Delete the selected sessions?')|tojson }})">{{ _("Delete selected") }}</button>
+    <button class="ghost danger" style="flex:0" name="scope" value="filter"
+      onclick="return confirm({{ _('Delete all {n} sessions shown with this filter? This cannot be undone.', n=txs|length)|tojson }})">{{ _("Delete all {n} shown", n=txs|length) }}</button>
+  </div>
+  {% endif %}
   <div class="table-wrap"><table>
-    <tr><th>{{ _("Start") }}</th><th>{{ _("End") }}</th><th>{{ _("Employee") }}</th><th>{{ _("Station") }}</th><th class="num">{{ _("Energy") }}</th><th>{{ _("Reason") }}</th></tr>
+    <tr><th style="width:24px"><input type="checkbox" title="{{ _('select all') }}" onclick="document.querySelectorAll('input[name=ids]').forEach(c => c.checked = this.checked); checkedCount()"></th>
+      <th>{{ _("Start") }}</th><th>{{ _("End") }}</th><th>{{ _("Employee") }}</th><th>{{ _("Station") }}</th><th class="num">{{ _("Energy") }}</th><th>{{ _("Reason") }}</th></tr>
     {% for t in txs %}
     <tr>
-      <td>{{ t.started_at|local }}</td>
-      <td>{% if t.stopped_at %}{{ t.stopped_at|local('time') }}{% else %}<span class="pill Charging">{{ _("running") }}</span>{% endif %}</td>
+      <td><input type="checkbox" name="ids" value="{{ t.id }}" onchange="checkedCount()"></td>
+      <td>{{ t.started_at|local }}{% if t.late %}<br><span class="pill warn" title="{{ _('Sent by the station afterwards on {date}', date=t.received_at|local) }}">{{ _("sent afterwards") }}</span>{% endif %}</td>
+      <td>{% if t.stopped_at %}{{ t.stopped_at|local('time' if t.stopped_at|local('date') == t.started_at|local('date') else 'full') }}{% elif t.late %}–{% else %}<span class="pill Charging">{{ _("running") }}</span>{% endif %}</td>
       <td>{{ t.employee.name if t.employee else '' }}<br><span class="mono muted">{{ t.tag_uid or '' }}</span></td>
-      <td>{{ t.station.name or t.station_id }}<br><span class="muted">{{ t.station.site.name if t.station.site else '' }}{% if t.connector_id %} · {{ t.station.connector_label(t.connector_id) }}{% endif %}</span></td>
+      <td>{{ t.station.name or t.station_id }}<br><span class="muted">{{ [t.station.site.name if t.station.site else None, t.station.connector_label(t.connector_id) if t.connector_id else None]|select|join(' · ') }}</span></td>
       <td class="num">{{ t.energy_kwh|kwh }}{% if t.soc_last is not none %}<br><span class="muted" title="{{ _('Battery') }}">{% if t.soc_start is not none and t.soc_start < t.soc_last %}{{ t.soc_start|round|int }} → {% endif %}{{ t.soc_last|round|int }} %</span>{% endif %}</td>
-      <td class="muted">{{ t.stop_reason or '' }}</td>
+      <td class="muted">{{ _(t.stop_reason) if t.stop_reason else '' }}</td>
     </tr>
     {% else %}
-    <tr><td colspan="6" class="empty">{{ _("No sessions in this period.") }}</td></tr>
+    <tr><td colspan="7" class="empty">{{ _("No sessions in this period.") }}</td></tr>
     {% endfor %}
   </table></div>
 </section>
+</form>
+
+<section class="card">
+  <h2>{{ _("Clean up") }}</h2>
+  <form method="post" action="{{ base }}/cleanup" class="row" onsubmit="return confirm({{ _('Delete everything before this date? This cannot be undone.')|tojson }})">
+    <div style="flex:0 1 200px"><label>{{ _("Delete everything before") }}</label><input type="date" name="before" required></div>
+    <div style="flex:0 1 auto;align-self:center;padding-top:16px">
+      <label style="display:inline;font-weight:normal;color:inherit"><input type="checkbox" name="sessions" value="1" checked> {{ _("finished sessions") }}</label>&nbsp;
+      <label style="display:inline;font-weight:normal;color:inherit"><input type="checkbox" name="log_entries" value="1"> {{ _("log entries") }}</label>
+    </div>
+    <button style="flex:0;background:var(--err);color:#fff">{{ _("Delete") }}</button>
+  </form>
+  <p class="muted" style="font-size:13px;margin-bottom:0">{{ _("Tip: a backup of the database is part of every Home Assistant backup.") }}</p>
+</section>
+<script>
+function checkedCount() {
+  var n = document.querySelectorAll('input[name=ids]:checked').length;
+  var el = document.getElementById('sel-info');
+  if (el) el.textContent = n ? {{ _("{n} selected")|tojson }}.replace('{n}', n) : '';
+  return n;
+}
+</script>
 {% endblock %}

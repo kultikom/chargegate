@@ -62,8 +62,9 @@ class ChargePoint201(CP201):
         soc = core.soc_from_meter_values(meter_value)
         uid = _token(id_token)
         status = emp_id = None
+        ts = core.parse_ts(timestamp)
         if uid:
-            status, emp_id = await core.authorize(self.id, uid, (evse or {}).get("id"))
+            status, emp_id = await core.authorize(self.id, uid, (evse or {}).get("id"), ts=ts)
 
         tx = await core.find_transaction(self.id, tx_id)
         if tx is None:
@@ -85,7 +86,7 @@ class ChargePoint201(CP201):
                 self.id, tx_id, stopped_at=core.parse_ts(timestamp), meter_stop_wh=wh,
                 stop_reason=transaction_info.get("stopped_reason") or trigger_reason)
             w = 0.0
-        await core.record_meter(self.id, connector, wh, w, soc)
+        await core.record_meter(self.id, connector, wh, w, soc, ts=ts)
 
         if status:
             return call_result.TransactionEvent(id_token_info={"status": status})
@@ -95,7 +96,8 @@ class ChargePoint201(CP201):
     async def on_meter_values(self, evse_id, meter_value, **kw):
         await core.record_meter(self.id, evse_id, core.energy_wh_from_meter_values(meter_value),
                                 core.power_w_from_meter_values(meter_value),
-                                core.soc_from_meter_values(meter_value))
+                                core.soc_from_meter_values(meter_value),
+                                ts=core.meter_values_ts(meter_value))
         await core.touch_station(self.id)
         return call_result.MeterValues()
 

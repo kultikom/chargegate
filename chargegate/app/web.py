@@ -8,6 +8,7 @@ import io
 import json
 import logging
 import re
+from urllib.parse import urlencode
 from contextvars import ContextVar
 from datetime import datetime, timedelta
 from zoneinfo import ZoneInfo
@@ -16,7 +17,7 @@ from fastapi import Depends, FastAPI, Form, HTTPException, Request
 from fastapi.responses import HTMLResponse, RedirectResponse, StreamingResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
-from sqlalchemy import func, select
+from sqlalchemy import delete, func, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import selectinload
 from starlette.middleware.sessions import SessionMiddleware
@@ -26,7 +27,7 @@ import core
 import entra_sync
 import i18n
 from db import (AuthEvent, Employee, Session, Site, Station, SyncState, Tag,
-                Transaction, hash_password, normalize_uid, utcnow)
+                Transaction, hash_password, normalize_uid, running_clause, utcnow)
 from i18n import t as _
 
 log = logging.getLogger("web")
@@ -269,7 +270,7 @@ async def dashboard(request: Request, user=Depends(admin)):
                                     )).scalars().all()
         pending = (await s.execute(select(func.count()).select_from(Station)
                                    .where(Station.approved.is_(False)))).scalar()
-        running = (await s.execute(select(Transaction).where(Transaction.stopped_at.is_(None))
+        running = (await s.execute(select(Transaction).where(running_clause())
                                    .options(selectinload(Transaction.employee),
                                             selectinload(Transaction.station))
                                    .order_by(Transaction.started_at.desc()))).scalars().all()
@@ -534,54 +535,134 @@ async def sync_now(request: Request, user=Depends(admin)):
 
 # --- Sessions & log -------------------------------------------------------------------------------
 
-def _month_range(month: str) -> tuple[datetime, datetime, str]:
+def _to_utc(d: datetime) -> datetime:
+    return d.replace(tzinfo=TZ).astimezone(ZoneInfo("UTC")).replace(tzinfo=None)
+
+
+def _month_range(month: str) -> tuple[datetime | None, datetime | None, str]:
+    """"2026-10" -> UTC range of that month; "all" -> no limit; anything else -> current month."""
+    if month == "all":
+        return None, None, "all"
     try:
         start = datetime.strptime(month, "%Y-%m")
     except ValueError:
         start = datetime.now(TZ).replace(day=1, hour=0, minute=0, second=0, microsecond=0, tzinfo=None)
     end = (start + timedelta(days=32)).replace(day=1)
-
-    def to_utc(d: datetime) -> datetime:
-        return d.replace(tzinfo=TZ).astimezone(ZoneInfo("UTC")).replace(tzinfo=None)
-
-    return to_utc(start), to_utc(end), start.strftime("%Y-%m")
+    return _to_utc(start), _to_utc(end), start.strftime("%Y-%m")
 
 
-async def _transactions(month: str, site_id: str, employee_id: str = ""):
+def _session_filter(month: str, site: str, employee: str, station: str):
+    """WHERE conditions shared by the list, the CSV export and bulk delete."""
     start, end, label = _month_range(month)
+    conds = []
+    if start is not None:
+        conds += [Transaction.started_at >= start, Transaction.started_at < end]
+    if site.isdigit():
+        conds.append(Transaction.station_id.in_(select(Station.id).where(Station.site_id == int(site))))
+    if employee.isdigit():
+        conds.append(Transaction.employee_id == int(employee))
+    if station:
+        conds.append(Transaction.station_id == station)
+    return conds, label
+
+
+async def _transactions(month: str, site: str, employee: str = "", station: str = ""):
+    conds, label = _session_filter(month, site, employee, station)
     async with Session() as s:
         stmt = (select(Transaction)
                 .options(selectinload(Transaction.employee),
                          selectinload(Transaction.station).selectinload(Station.site))
-                .where(Transaction.started_at >= start, Transaction.started_at < end)
-                .order_by(Transaction.started_at.desc()))
-        if site_id.isdigit():
-            stmt = stmt.join(Station).where(Station.site_id == int(site_id))
-        if employee_id.isdigit():
-            stmt = stmt.where(Transaction.employee_id == int(employee_id))
+                .where(*conds).order_by(Transaction.started_at.desc()))
         txs = (await s.execute(stmt)).scalars().all()
         sites = (await s.execute(select(Site).order_by(Site.name))).scalars().all()
         employees = sorted((await s.execute(select(Employee))).scalars().all(),
                            key=lambda e: natural_key(e.name))
-    return txs, sites, employees, label
+        stations = sorted((await s.execute(select(Station))).scalars().all(), key=station_key)
+        # months that have sessions, newest first – also old ones sent afterwards by a station
+        stamps = (await s.execute(select(Transaction.started_at))).scalars().all()
+    months = sorted({local(d, "%Y-%m") for d in stamps if d} | {datetime.now(TZ).strftime("%Y-%m")}, reverse=True)
+    return txs, sites, employees, stations, months, label
+
+
+def _month_name(ym: str) -> str:
+    y, m = ym.split("-")
+    names = {"en": ["January", "February", "March", "April", "May", "June", "July", "August",
+                    "September", "October", "November", "December"],
+             "de": ["Januar", "Februar", "März", "April", "Mai", "Juni", "Juli", "August",
+                    "September", "Oktober", "November", "Dezember"]}
+    return f"{names[i18n.current()][int(m) - 1]} {y}"
+
+
+templates.env.filters["month_name"] = _month_name
 
 
 @web_app.get("/transactions", response_class=HTMLResponse)
 async def transactions_page(request: Request, user=Depends(admin), month: str = "", site: str = "",
-                            employee: str = ""):
-    txs, sites, employees, label = await _transactions(month, site, employee)
+                            employee: str = "", station: str = ""):
+    txs, sites, employees, stations, months, label = await _transactions(month, site, employee, station)
     total = sum(t.energy_kwh or 0 for t in txs)
     per_emp: dict[str, float] = {}
     for t in txs:
         key = t.employee.name if t.employee else (t.tag_uid or _("no tag"))
         per_emp[key] = per_emp.get(key, 0) + (t.energy_kwh or 0)
+    query = urlencode({"month": label, "site": site, "employee": employee, "station": station})
     return render(request, "transactions.html", txs=txs, sites=sites, month=label, site=site,
-                  employees=employees, employee=employee, total=total, per_emp=sorted(per_emp.items(), key=lambda x: -x[1]))
+                  employees=employees, employee=employee, stations=stations, station=station,
+                  months=months, query=query, total=total,
+                  per_emp=sorted(per_emp.items(), key=lambda x: -x[1]))
+
+
+@web_app.post("/transactions/delete")
+async def transactions_delete(request: Request, user=Depends(admin), ids: list[int] = Form([]),
+                              scope: str = Form("selected"), month: str = Form(""), site: str = Form(""),
+                              employee: str = Form(""), station: str = Form("")):
+    """Delete the ticked sessions, or all sessions matching the current filter."""
+    if scope == "filter":
+        conds, _label = _session_filter(month, site, employee, station)
+    else:
+        if not ids:
+            flash(request, _("No sessions selected"), "err")
+            return back("/transactions?" + urlencode({"month": month, "site": site, "employee": employee,
+                                                      "station": station}))
+        conds = [Transaction.id.in_(ids)]
+    async with Session() as s:
+        n = (await s.execute(delete(Transaction).where(*conds))).rowcount
+        await s.commit()
+    log.info("%s deleted %s session(s) (%s)", user, n, scope)
+    core.notify_all()
+    flash(request, _("Sessions deleted: {n}", n=n))
+    return back("/transactions?" + urlencode({"month": month, "site": site, "employee": employee,
+                                              "station": station}))
+
+
+@web_app.post("/cleanup")
+async def cleanup(request: Request, user=Depends(admin), before: str = Form(...),
+                  sessions: str = Form(""), log_entries: str = Form("")):
+    """Delete sessions and/or log entries that started before a date."""
+    try:
+        cutoff = _to_utc(datetime.strptime(before, "%Y-%m-%d"))
+    except ValueError:
+        flash(request, _("Please enter a date"), "err")
+        return back("/transactions")
+    n_tx = n_log = 0
+    async with Session() as s:
+        if sessions:
+            n_tx = (await s.execute(delete(Transaction).where(
+                Transaction.started_at < cutoff, Transaction.stopped_at.is_not(None)))).rowcount
+        if log_entries:
+            n_log = (await s.execute(delete(AuthEvent).where(AuthEvent.ts < cutoff))).rowcount
+        await s.commit()
+    log.info("%s cleaned up before %s: %s sessions, %s log entries", user, before, n_tx, n_log)
+    core.notify_all()
+    flash(request, _("Deleted before {date} – sessions: {tx}, log entries: {log}",
+                     tx=n_tx, log=n_log, date=local(cutoff, "date")))
+    return back("/transactions?month=all")
 
 
 @web_app.get("/transactions.csv")
-async def transactions_csv(user=Depends(admin), month: str = "", site: str = "", employee: str = ""):
-    txs, _sites, employees, label = await _transactions(month, site, employee)
+async def transactions_csv(user=Depends(admin), month: str = "", site: str = "", employee: str = "",
+                           station: str = ""):
+    txs, _sites, employees, _stations, _months, label = await _transactions(month, site, employee, station)
     emp = next((e for e in employees if str(e.id) == employee), None)
     if emp:
         label += "-" + (re.sub(r"[^A-Za-z0-9]+", "-", emp.name).strip("-").lower() or str(emp.id))
@@ -592,7 +673,7 @@ async def transactions_csv(user=Depends(admin), month: str = "", site: str = "",
                                "Tag", "kWh", "Meter start (Wh)", "Meter end (Wh)", "SoC start (%)", "SoC end (%)",
                                "Stop reason")])
     for t in txs:
-        w.writerow([local(t.started_at), local(t.stopped_at) if t.stopped_at else _("running"),
+        w.writerow([local(t.started_at), local(t.stopped_at) if t.stopped_at else ("" if t.late else _("running")),
                     t.station.site.name if t.station and t.station.site else "",
                     (t.station.name or t.station_id) if t.station else t.station_id,
                     t.station.connector_label(t.connector_id) if t.station else (t.connector_id or ""),

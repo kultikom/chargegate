@@ -18,7 +18,7 @@ from sqlalchemy.orm import selectinload
 
 import config
 import core
-from db import Session, Station, Transaction
+from db import Session, Station, Transaction, running_clause
 
 log = logging.getLogger("chargegate.mqtt")
 
@@ -152,7 +152,7 @@ class Bridge:
             "icon": "mdi:lan-connect"})
         async with Session() as s:
             running = (await s.execute(select(func.count()).select_from(Transaction)
-                                       .where(Transaction.stopped_at.is_(None)))).scalar()
+                                       .where(running_clause()))).scalar()
         await self._pub(f"{BASE}/hub/state", json.dumps({"running": running, "online": len(core.connected)}))
         self._has_sessions = running > 0
 
@@ -163,7 +163,7 @@ class Bridge:
                 selectinload(Station.site), selectinload(Station.connectors)))).scalar_one_or_none()
             txs = [] if st is None else (await s.execute(
                 select(Transaction).options(selectinload(Transaction.employee))
-                .where(Transaction.station_id == sid, Transaction.stopped_at.is_(None)))).scalars().all()
+                .where(Transaction.station_id == sid, running_clause()))).scalars().all()
 
         if st is None or not st.approved:
             await self._remove_station(sid, node)
