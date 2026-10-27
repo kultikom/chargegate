@@ -70,6 +70,9 @@ Load management (master/slave) is independent of this – every ducto connects t
 
 ## Alfen Eve Single Pro-line (e.g. 904460027) and Pro-line DE (e.g. 904460127)
 
+**Tested in production:** Alfen Eve Single Pro-line, model **NG910-60027**, firmware **5.5.1-4099**
+(reports itself as vendor `Alfen BV`). The Pro-line DE variant has not been tested yet.
+
 Configured with the **ACE Service Installer** (Windows; an installer account from Alfen is required).
 Menu names vary between firmware and installer versions.
 
