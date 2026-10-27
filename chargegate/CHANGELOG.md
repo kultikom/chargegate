@@ -1,5 +1,15 @@
 # Changelog
 
+## 1.5.0
+
+- **"Done" state:** a car that has charged and then drawn no power for 3 minutes is shown as
+  **Done** – in the dashboard card (with "for 0:41:00": how long it has been standing there full),
+  in the ChargeGate overview and as new Home Assistant entity **State**
+- **Paused** when the station itself holds back (`SuspendedEVSE`, e.g. load management)
+- The card summary counts finished cars ("1 charging · 1 done · 10.1 kW")
+- New entity **State** per charging point: Free / Charging / Done / Paused / Connected / Fault /
+  Offline, with the code in attribute `phase` for automations
+
 ## 1.4.1
 
 - **Fix:** station settings (meter value interval, power measurand) and the tag list are now sent on

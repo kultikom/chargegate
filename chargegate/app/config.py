@@ -6,7 +6,7 @@ def _bool(name: str, default: bool = False) -> bool:
     return os.getenv(name, str(default)).strip().lower() in ("1", "true", "yes", "on")
 
 
-VERSION = "1.4.1"
+VERSION = "1.5.0"
 
 DATABASE_URL = os.getenv("DATABASE_URL", "sqlite+aiosqlite:///./chargegate.db")
 SECRET_KEY = os.getenv("SECRET_KEY", "change-me")
@@ -30,6 +30,8 @@ LOCAL_LIST_CHUNK = int(os.getenv("LOCAL_LIST_CHUNK", "100"))
 # On connect: set meter value interval and StopTransactionOnInvalidId (OCPP 1.6)
 APPLY_STATION_CONFIG = _bool("APPLY_STATION_CONFIG", True)
 METER_VALUE_INTERVAL = int(os.getenv("METER_VALUE_INTERVAL", "60"))  # seconds while charging
+# A car counts as "done" once no power has flowed for this long after it was charging
+DONE_AFTER_S = int(os.getenv("DONE_AFTER_S", "180"))
 
 # Local admin login (empty = disabled)
 ADMIN_PASSWORD = os.getenv("ADMIN_PASSWORD", "admin")

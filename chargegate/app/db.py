@@ -74,6 +74,7 @@ class ConnectorStatus(Base):
     updated: Mapped[datetime] = mapped_column(DateTime, default=utcnow)
     energy_wh: Mapped[float | None] = mapped_column(Float)   # last energy register reading
     energy_at: Mapped[datetime | None] = mapped_column(DateTime)  # when it was received
+    idle_since: Mapped[datetime | None] = mapped_column(DateTime)  # no power flowing since (during a session)
     power_w: Mapped[float | None] = mapped_column(Float)     # last active power reading
     peak_power_w: Mapped[float | None] = mapped_column(Float)  # highest power ever seen (learns 11/22 kW)
     soc: Mapped[float | None] = mapped_column(Float)            # battery state of charge of the car, %

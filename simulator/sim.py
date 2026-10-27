@@ -55,6 +55,7 @@ SOC = None          # starting battery level in % (only sent if --soc is given)
 BOOT = True         # send BootNotification (a reconnect after a server restart usually doesn't)
 POWER = True        # report Power.Active.Import
 STEP_DELAY = 0.5
+FULL = 0.0          # seconds the car stays plugged in after it is full (power 0, SuspendedEV)
 
 
 def now():
@@ -85,6 +86,20 @@ async def run16(cp, tag, kwh, steps):
             sampled.append({"value": f"{soc_now:.0f}", "measurand": "SoC", "unit": "Percent", "location": "EV"})
         await cp.call(c16.MeterValues(connector_id=CONNECTOR, transaction_id=tx, meter_value=[{
             "timestamp": now(), "sampledValue": sampled}]))
+    if FULL > 0:
+        # car is full: it stops drawing power but stays plugged in
+        await cp.call(c16.StatusNotification(connector_id=CONNECTOR, error_code="NoError", status="SuspendedEV"))
+        print(f"Car full – staying plugged in for {FULL:.0f} s")
+        waited = 0.0
+        while waited < FULL:
+            step = min(STEP_DELAY, FULL - waited)
+            await asyncio.sleep(step)
+            waited += step
+            sampled = [{"value": str(meter), "measurand": "Energy.Active.Import.Register", "unit": "Wh"}]
+            if POWER:
+                sampled.append({"value": "0", "measurand": "Power.Active.Import", "unit": "W"})
+            await cp.call(c16.MeterValues(connector_id=CONNECTOR, transaction_id=tx, meter_value=[{
+                "timestamp": now(), "sampledValue": sampled}]))
     await cp.call(c16.StopTransaction(meter_stop=meter, timestamp=now(), transaction_id=tx, reason="EVDisconnected"))
     await cp.call(c16.StatusNotification(connector_id=CONNECTOR, error_code="NoError", status="Available"))
     print(f"Done, charged {kwh} kWh")
@@ -143,9 +158,11 @@ async def main():
     p.add_argument("--no-boot", action="store_true", help="skip BootNotification (plain reconnect)")
     p.add_argument("--no-power", action="store_true", help="don't report power")
     p.add_argument("--step-delay", type=float, default=0.5, help="seconds between meter values")
+    p.add_argument("--full", type=float, default=0, help="OCPP 1.6: stay plugged in N s after the car is full")
     p.add_argument("--stay", type=float, default=0, help="stay connected for N more seconds afterwards")
     a = p.parse_args()
-    global CONNECTOR, SOC, BOOT, POWER, STEP_DELAY
+    global CONNECTOR, SOC, BOOT, POWER, STEP_DELAY, FULL
+    FULL = a.full
     CONNECTOR, SOC, BOOT, POWER, STEP_DELAY = a.connector, a.soc, not a.no_boot, not a.no_power, a.step_delay
 
     headers = {}

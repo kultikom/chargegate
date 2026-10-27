@@ -22,6 +22,9 @@ ENERGY = "Energy.Active.Import.Register"
 POWER = "Power.Active.Import"
 SOC = "SoC"
 CHARGING_STATES = {"Charging", "Occupied", "SuspendedEV", "SuspendedEVSE"}
+IDLE_POWER_W = 100        # below this a car is not really charging
+DONE_AFTER_S = config.DONE_AFTER_S  # no power for this long after energy was delivered -> "done"
+DONE_MIN_KWH = 0.05       # a session must have delivered at least this much to count as "done"
 
 
 # --- Change notifications (used by the Home Assistant / MQTT bridge) --------------------
@@ -139,7 +142,10 @@ async def set_connector_status(station_id: str, connector_id: int, status: str,
             s.add(cs)
         cs.status, cs.error_code, cs.updated = status, error_code, utcnow()
         if status not in CHARGING_STATES:
+            cs.power_w, cs.idle_since = 0.0, None
+        elif status == "SuspendedEV":           # the car itself stopped drawing power (full, timer …)
             cs.power_w = 0.0
+            cs.idle_since = cs.idle_since or utcnow()
         if status in ("Available", "Unavailable", "Faulted"):
             cs.soc = None                       # car unplugged – its battery level is gone
         st = await s.get(Station, station_id)
@@ -160,6 +166,7 @@ async def record_meter(station_id: str, connector_id: int | None, energy_wh: flo
             cs = ConnectorStatus(station_id=station_id, connector_id=connector_id, status="Unknown")
             s.add(cs)
         now = utcnow()
+        power_known = power_w is not None
         if energy_wh is not None:
             if (power_w is None and cs.energy_wh is not None and cs.energy_at is not None
                     and cs.status in CHARGING_STATES):
@@ -169,15 +176,52 @@ async def record_meter(station_id: str, connector_id: int | None, energy_wh: flo
                     estimate = (energy_wh - cs.energy_wh) * 3600 / dt
                     if estimate <= 400_000:          # ignore nonsense (e.g. meter jumps)
                         cs.power_w = round(estimate)  # estimates never teach the maximum
+                        power_known = True
             cs.energy_wh, cs.energy_at = energy_wh, now
         if power_w is not None:
             cs.power_w = power_w
             if power_w > (cs.peak_power_w or 0):
                 cs.peak_power_w = power_w
+        if power_known and cs.status in CHARGING_STATES:
+            if (cs.power_w or 0) < IDLE_POWER_W:
+                cs.idle_since = cs.idle_since or now
+            else:
+                cs.idle_since = None
         if soc is not None:
             cs.soc, cs.soc_supported = soc, True
         await s.commit()
     notify(station_id)
+
+
+def session_phase(cs, tx, online: bool, now=None) -> str:
+    """What a charging point is doing, in plain terms (used by Home Assistant and the card).
+
+    offline | free | connected | charging | done | paused | fault | unavailable | reserved
+    """
+    now = now or utcnow()
+    if not online:
+        return "offline"
+    status = cs.status if cs else "Unknown"
+    if status == "Faulted":
+        return "fault"
+    if status == "Unavailable":
+        return "unavailable"
+    if status == "Reserved":
+        return "reserved"
+    if tx is not None:
+        if status == "SuspendedEVSE":
+            return "paused"                         # the station holds back (e.g. load management)
+        delivered = (tx.energy_kwh or 0) >= DONE_MIN_KWH
+        if cs.idle_since and delivered and (now - cs.idle_since).total_seconds() >= DONE_AFTER_S:
+            return "done"
+        if status == "Charging" or (cs.power_w or 0) >= IDLE_POWER_W:
+            return "charging"
+        if delivered and cs.idle_since:
+            return "charging"                       # just stopped drawing power – wait before "done"
+        return "connected"
+    if status in ("Preparing", "Occupied", "SuspendedEV", "SuspendedEVSE", "Finishing"):
+        return "connected"
+    return "free"
 
 
 # --- Transactions ---------------------------------------------------------------------

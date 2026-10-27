@@ -280,8 +280,16 @@ async def dashboard(request: Request, user=Depends(admin)):
     for st in sorted(stations, key=station_key):
         groups.setdefault(st.site.name if st.site else None, []).append(st)
     groups = sorted(groups.items(), key=lambda g: (g[0] is None, natural_key(g[0])))
+    # plain-language state per charging point (free / charging / done …), like in Home Assistant
+    tx_at = {(t.station_id, t.connector_id): t for t in running}
+    phases = {(st.id, c.connector_id): core.session_phase(c, tx_at.get((st.id, c.connector_id)),
+                                                          st.id in core.connected)
+              for st in stations for c in st.connectors}
+    done_since = {(st.id, c.connector_id): c.idle_since for st in stations for c in st.connectors
+                  if phases[(st.id, c.connector_id)] == "done"}
     return render(request, "index.html", stations=stations, groups=groups, pending=pending, running=running,
-                  events=events, online=set(core.connected), ocpp_url=ocpp_url(request))
+                  events=events, online=set(core.connected), ocpp_url=ocpp_url(request),
+                  phases=phases, done_since=done_since)
 
 
 # --- Stations & sites -------------------------------------------------------------------------

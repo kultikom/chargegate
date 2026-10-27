@@ -30,12 +30,25 @@ HUB_ID = "chargegate_hub"
 _NAMES = {
     "en": {"online": "Online", "status": "Status", "charging": "Charging", "power": "Power",
            "energy": "Energy", "session_energy": "Session energy", "employee": "Employee",
-           "connector": "Connector {c}", "soc": "Battery", "running": "Running sessions", "stations_online": "Stations online"},
+           "connector": "Connector {c}", "soc": "Battery", "state": "State", "running": "Running sessions", "stations_online": "Stations online"},
     "de": {"online": "Online", "status": "Status", "charging": "Lädt", "power": "Leistung",
            "energy": "Energie", "session_energy": "Energie Ladevorgang", "employee": "Mitarbeiter",
-           "connector": "Anschluss {c}", "soc": "Akkustand", "running": "Laufende Ladevorgänge", "stations_online": "Stationen online"},
+           "connector": "Anschluss {c}", "soc": "Akkustand", "state": "Zustand", "running": "Laufende Ladevorgänge", "stations_online": "Stationen online"},
 }
 NAMES = _NAMES["de" if config.LANGUAGE == "de" else "en"]
+_PHASES = {
+    "en": {"offline": "Offline", "free": "Free", "connected": "Connected", "charging": "Charging",
+           "done": "Done", "paused": "Paused", "fault": "Fault", "unavailable": "Unavailable",
+           "reserved": "Reserved"},
+    "de": {"offline": "Offline", "free": "Frei", "connected": "Verbunden", "charging": "Lädt",
+           "done": "Fertig", "paused": "Pausiert", "fault": "Störung", "unavailable": "Nicht verfügbar",
+           "reserved": "Reserviert"},
+}
+PHASES = _PHASES["de" if config.LANGUAGE == "de" else "en"]
+
+
+def iso(dt) -> str | None:
+    return None if dt is None else dt.replace(microsecond=0).isoformat() + "Z"
 ORIGIN = {"name": "ChargeGate", "sw_version": config.VERSION,
           "support_url": "https://github.com/kultikom/chargegate"}
 
@@ -59,6 +72,7 @@ class Bridge:
         self._client: aiomqtt.Client | None = None
         self._sent: dict[str, str] = {}               # topic -> last payload (discovery only)
         self._known: dict[str, set[int]] = {}         # station -> connectors with entities
+        self._has_sessions = False
 
     # called by core.notify() – must not block
     def listener(self, station_id: str | None) -> None:
@@ -79,7 +93,13 @@ class Bridge:
                     self._pending.add(None)
                     self._event.set()
                     while True:
-                        await self._event.wait()
+                        try:
+                            # also wake up every minute: "done" depends on elapsed time
+                            await asyncio.wait_for(self._event.wait(), timeout=60)
+                        except TimeoutError:
+                            if not self._has_sessions:
+                                continue
+                            self._pending.add(None)
                         self._event.clear()
                         await asyncio.sleep(0.5)         # batch bursts of updates
                         pending, self._pending = self._pending, set()
@@ -134,6 +154,7 @@ class Bridge:
             running = (await s.execute(select(func.count()).select_from(Transaction)
                                        .where(Transaction.stopped_at.is_(None)))).scalar()
         await self._pub(f"{BASE}/hub/state", json.dumps({"running": running, "online": len(core.connected)}))
+        self._has_sessions = running > 0
 
     async def _sync_station(self, sid: str) -> None:
         node = f"cg_{slug(sid)}"
@@ -186,6 +207,13 @@ class Bridge:
                 "name": name("status"), "unique_id": f"{uid}_status",
                 "value_template": "{{ value_json.status if value_json.online else 'Offline' }}",
                 "json_attributes_topic": state_topic, "icon": "mdi:ev-plug-type2"})
+            await self._config("sensor", node, f"{c}_state", {
+                **common, "availability": [{"topic": AVAILABILITY}], "availability_mode": "all",
+                "name": name("state"), "unique_id": f"{uid}_state",
+                "value_template": "{{ value_json.phase_label }}",
+                "json_attributes_topic": state_topic,
+                "json_attributes_template": "{{ {'phase': value_json.phase, 'idle_since': value_json.idle_since} | tojson }}",
+                "icon": "mdi:ev-station"})
             await self._config("binary_sensor", node, f"{c}_charging", {
                 **common, "name": name("charging"), "unique_id": f"{uid}_charging",
                 "value_template": "{{ 'ON' if value_json.charging else 'OFF' }}",
@@ -218,7 +246,11 @@ class Bridge:
 
             tx = tx_by_connector.get(c)
             online = sid in core.connected
+            phase = core.session_phase(cs, tx, online)
             state = {
+                "phase": phase,
+                "phase_label": PHASES[phase],
+                "idle_since": iso(cs.idle_since) if tx is not None and online else None,
                 "source": "chargegate",
                 "station": sid,
                 "station_name": st.name or st.id,
@@ -233,7 +265,7 @@ class Bridge:
                 "max_power": cs.max_power_w,
                 "energy": round(cs.energy_wh / 1000, 3) if cs.energy_wh is not None else None,
                 "session_energy": (tx.energy_kwh or 0) if tx is not None else 0,
-                "session_start": (tx.started_at.replace(microsecond=0).isoformat() + "Z") if tx is not None else None,
+                "session_start": iso(tx.started_at) if tx is not None else None,
                 "soc": round(cs.soc) if cs.soc is not None and online else None,
                 "soc_start": round(tx.soc_start) if tx is not None and tx.soc_start is not None else None,
             }
@@ -254,7 +286,7 @@ class Bridge:
         for c in connectors:
             for comp, obj in (("sensor", "status"), ("binary_sensor", "charging"), ("sensor", "power"),
                               ("sensor", "energy"), ("sensor", "session_energy"), ("sensor", "employee"),
-                              ("sensor", "soc")):
+                              ("sensor", "soc"), ("sensor", "state")):
                 await self._config(comp, node, f"{c}_{obj}", None)
         log.info("Removed %s from Home Assistant", sid)
 

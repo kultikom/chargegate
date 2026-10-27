@@ -14,20 +14,22 @@
  *   show_employee: true           # optional
  *   show_soc: true                # optional: battery level, if the station reports it
  */
-const CG_VERSION = "1.4.1";
+const CG_VERSION = "1.5.0";
 
 const CG_TEXT = {
   en: {
     title: "Charging points", offline: "Offline", free: "Free", charging: "Charging",
+    done: "Done", paused: "Paused", done_for: "for", done_title: "Done for {idle} · session {total}",
     connected: "Connected", fault: "Fault", unavailable: "Unavailable", reserved: "Reserved",
     connector: "Point", noStations: "No ChargeGate charging points found. Is the MQTT integration set up?",
-    charging_now: "{n} charging", of: "of", kw: "kW", since: "since", soc: "Battery",
+    charging_now: "{n} charging", done_now: "{n} done", of: "of", kw: "kW", since: "since", soc: "Battery",
   },
   de: {
     title: "Ladepunkte", offline: "Offline", free: "Frei", charging: "Lädt",
+    done: "Fertig", paused: "Pausiert", done_for: "seit", done_title: "Fertig seit {idle} · Ladedauer {total}",
     connected: "Verbunden", fault: "Störung", unavailable: "Nicht verfügbar", reserved: "Reserviert",
     connector: "Punkt", noStations: "Keine ChargeGate-Ladepunkte gefunden. Ist die MQTT-Integration eingerichtet?",
-    charging_now: "{n} laden", of: "von", kw: "kW", since: "seit", soc: "Akkustand",
+    charging_now: "{n} laden", done_now: "{n} fertig", of: "von", kw: "kW", since: "seit", soc: "Akkustand",
   },
 };
 
@@ -112,6 +114,7 @@ class ChargeGateCard extends HTMLElement {
   _state(p) {
     const a = p.attributes;
     if (p.state === "unavailable" || !a.online) return "offline";
+    if (a.phase) return a.phase;               // ChargeGate 1.5+: decided by the server
     if (["Faulted"].includes(a.status)) return "fault";
     if (["Unavailable"].includes(a.status)) return "unavailable";
     if (["Reserved"].includes(a.status)) return "reserved";
@@ -146,7 +149,7 @@ class ChargeGateCard extends HTMLElement {
   _tick() {
     if (!this.shadowRoot) return;
     this.shadowRoot.querySelectorAll("[data-start]").forEach((el) => {
-      el.textContent = this._duration(el.dataset.start);
+      el.textContent = (el.dataset.prefix ? el.dataset.prefix + " " : "") + this._duration(el.dataset.start);
     });
   }
 
@@ -154,6 +157,7 @@ class ChargeGateCard extends HTMLElement {
     const cfg = this._config;
     const stations = this._stations(points);
     const charging = points.filter((p) => this._state(p) === "charging").length;
+    const done = points.filter((p) => this._state(p) === "done").length;
     const totalW = points.reduce((sum, p) => sum + (p.attributes.online ? (p.attributes.power || 0) : 0), 0);
     const cols = cfg.columns ? `repeat(${Number(cfg.columns)}, minmax(0, 1fr))` : "repeat(auto-fill, minmax(300px, 1fr))";
 
@@ -165,7 +169,7 @@ class ChargeGateCard extends HTMLElement {
       <ha-card>
         <div class="head">
           <div class="title">${this._esc(cfg.title || this._t("title"))}</div>
-          <div class="summary">${this._esc(this._t("charging_now", { n: charging }))} · ${this._kw(totalW)} ${this._t("kw")}</div>
+          <div class="summary">${this._esc(this._t("charging_now", { n: charging }))}${done ? " · " + this._esc(this._t("done_now", { n: done })) : ""} · ${this._kw(totalW)} ${this._t("kw")}</div>
         </div>
         <div class="grid" style="grid-template-columns:${cols}">${body}</div>
       </ha-card>`;
@@ -198,16 +202,28 @@ class ChargeGateCard extends HTMLElement {
           ${multi ? (a.connector_label
             ? `<span class="lbl" title="${this._esc(a.connector_label)}">${this._esc(a.connector_label)}</span>`
             : `<span class="num">${a.connector}</span>`) : ""}
-          <span class="pill" title="OCPP: ${this._esc(a.status)}">${this._esc(this._t(state))}</span>
+          <span class="pill" title="OCPP: ${this._esc(a.status)}">${state === "done" ? "✓ " : ""}${this._esc(this._t(state))}</span>
           <span class="who" title="${this._esc(employee)}">${this._esc(employee)}</span>
           ${this._soc(a, active)}
-          <span class="dur"${active && a.session_start ? ` data-start="${this._esc(a.session_start)}"` : ""}>${active ? this._duration(a.session_start) : ""}</span>
+          ${this._dur(a, state, active)}
         </div>
         <div class="row2">
           <div class="bar"><div class="fill" style="width:${pct.toFixed(1)}%"></div></div>
           <span class="kw">${this._kw(power)} <span class="max">/ ${Math.round(max / 1000)} ${this._t("kw")}</span></span>
         </div>
       </div>`;
+  }
+
+  _dur(a, state, active) {
+    if (!active || !a.session_start) return `<span class="dur"></span>`;
+    if (state === "done" && a.idle_since) {
+      // a finished car: how long has it been standing there full?
+      const prefix = this._t("done_for");
+      const title = this._t("done_title", { idle: this._duration(a.idle_since), total: this._duration(a.session_start) });
+      return `<span class="dur done" data-start="${this._esc(a.idle_since)}" data-prefix="${this._esc(prefix)}"
+        title="${this._esc(title)}">${this._esc(prefix)} ${this._duration(a.idle_since)}</span>`;
+    }
+    return `<span class="dur" data-start="${this._esc(a.session_start)}">${this._duration(a.session_start)}</span>`;
   }
 
   _soc(a, active) {
@@ -226,7 +242,7 @@ class ChargeGateCard extends HTMLElement {
   static get styles() {
     return `
       :host { --cg-free: var(--success-color, #43a047); --cg-charging: var(--info-color, #039be5);
-              --cg-connected: var(--warning-color, #ffa000); --cg-fault: var(--error-color, #db4437);
+              --cg-connected: var(--warning-color, #ffa000); --cg-done: #00897b; --cg-fault: var(--error-color, #db4437);
               --cg-offline: var(--disabled-text-color, #9e9e9e); }
       ha-card { padding: 16px; }
       .head { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; margin-bottom: 12px; flex-wrap: wrap; }
@@ -261,6 +277,10 @@ class ChargeGateCard extends HTMLElement {
       .kw { font-variant-numeric: tabular-nums; white-space: nowrap; font-size: .9em; color: var(--primary-text-color); min-width: 88px; text-align: right; }
       .max { color: var(--secondary-text-color); }
       .s-free { --cg-c: var(--cg-free); }
+      .s-done { --cg-c: var(--cg-done); }
+      .s-done .pill { font-weight: 700; }
+      .dur.done { color: var(--cg-done); font-weight: 600; }
+      .s-paused { --cg-c: var(--cg-connected); }
       .s-charging { --cg-c: var(--cg-charging); }
       .s-charging .fill { background: linear-gradient(90deg, var(--cg-c), color-mix(in srgb, var(--cg-c) 65%, white)); }
       .s-connected, .s-reserved { --cg-c: var(--cg-connected); }

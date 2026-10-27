@@ -13,6 +13,7 @@ The Home Assistant app maps its options to the same variables.
 | `WEB_PORT` | – | `8080` (HA: `8099`) | web UI port |
 | `HEARTBEAT_INTERVAL` | `heartbeat_interval` | `300` | seconds |
 | `METER_VALUE_INTERVAL` | `meter_value_interval` | `60` | seconds between meter values while charging |
+| `DONE_AFTER_S` | – | `180` | seconds without power after charging before a car counts as *done* |
 | `PUBLIC_OCPP_URL` | – (from Supervisor) | from request | OCPP address shown in the UI |
 | `REQUIRE_STATION_APPROVAL` | `require_station_approval` | `true` | reject unknown stations until approved |
 | `LOCAL_LIST_ENABLED` | `local_list_enabled` | `true` | push valid tags to stations |

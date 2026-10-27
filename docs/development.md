@@ -18,6 +18,7 @@ python simulator/sim.py --id TEST-01 --password secret --stay 20        # basic 
 python simulator/sim.py --id TEST-01 --kwh 11 --steps 10                # 11 kWh in 10 meter values
 python simulator/sim.py --id DUO-01 --connector 2                       # second connector of a Duo
 python simulator/sim.py --id DUO-01 --no-boot --no-power --step-delay 30  # reconnect without boot, no power
+python simulator/sim.py --id DUO-01 --full 300                            # car full, stays plugged in for 5 min
 ```
 
 New stations are rejected until approved, so approve `TEST-01` in the UI first.

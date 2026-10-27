@@ -93,3 +93,12 @@ details[open] summary { margin-bottom: 12px; }
 .urlbox { display: flex; flex-wrap: wrap; gap: 8px 12px; align-items: center; margin: 4px 0 20px; }
 .urlbox code { font-size: 15px; padding: 6px 10px; background: var(--card); border: 1px solid var(--line); border-radius: 7px; user-select: all; word-break: break-all; }
 .card.empty .urlbox { margin: 12px 0 0; }
+.pill.phase-free { background: var(--accent-soft); color: var(--accent); }
+.pill.phase-charging { background: #e3ecfb; color: #2457b3; }
+.pill.phase-connected, .pill.phase-paused, .pill.phase-reserved { background: var(--warn-soft); color: var(--warn); }
+.pill.phase-done { background: #d9f2ee; color: #00796b; }
+.pill.phase-fault, .pill.phase-unavailable { background: var(--err-soft); color: var(--err); }
+@media (prefers-color-scheme: dark) {
+  .pill.phase-charging { background: #1b2a44; color: #8db4ff; }
+  .pill.phase-done { background: #123a35; color: #4dd0c0; }
+}

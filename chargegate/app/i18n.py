@@ -38,8 +38,13 @@ def pick_language(cookie_header: str, accept_language: str) -> str:
     return "en"
 
 
+_EN = {"phase_offline": "Offline", "phase_free": "Free", "phase_connected": "Connected",
+       "phase_charging": "Charging", "phase_done": "Done", "phase_paused": "Paused",
+       "phase_fault": "Fault", "phase_unavailable": "Unavailable", "phase_reserved": "Reserved"}
+
+
 def t(msg: str, **kw) -> str:
-    text = CATALOGS.get(current(), {}).get(msg, msg)
+    text = CATALOGS.get(current(), {}).get(msg) or _EN.get(msg, msg)
     return text.format(**kw) if kw else text
 
 
@@ -108,7 +113,10 @@ DE = {
         "Der OCPP-Port ist in den Netzwerk-Einstellungen der App deaktiviert – Wallboxen können sich nicht verbinden.",
     "No site": "Ohne Standort", "no status yet": "noch kein Status", "last seen": "zuletzt gesehen",
     "Running sessions": "Laufende Ladevorgänge", "Employee": "Mitarbeiter", "Station": "Station",
-    "Since": "Seit", "So far": "Bisher", "Nobody is charging right now.": "Gerade lädt niemand.",
+    "Since": "Seit", "since": "seit",
+    "phase_offline": "Offline", "phase_free": "Frei", "phase_connected": "Verbunden",
+    "phase_charging": "Lädt", "phase_done": "Fertig", "phase_paused": "Pausiert",
+    "phase_fault": "Störung", "phase_unavailable": "Nicht verfügbar", "phase_reserved": "Reserviert", "So far": "Bisher", "Nobody is charging right now.": "Gerade lädt niemand.",
     "Recent authorizations": "Letzte Anmeldungen", "No tags read yet.": "Noch keine Chips gelesen.",
     # stations
     "OCPP address for your stations:": "OCPP-Adresse für die Wallboxen:",

@@ -23,7 +23,8 @@ Per connector (prefixed with "Connector N" on stations with several connectors, 
 
 | Entity | Type | Unit | Notes |
 |---|---|---|---|
-| Status | sensor | | Available, Charging, Faulted, …, `Offline` – stays available while the station is offline and carries the full connector state as attributes |
+| State | sensor | | Free, Charging, **Done**, Paused, Connected, Fault, Offline – in plain words (see below); attribute `phase` holds a language-independent code for automations |
+| Status | sensor | | raw OCPP status: Available, Charging, SuspendedEV, Faulted, …, `Offline` – carries the full connector state as attributes |
 | Charging | binary sensor | | a session is running |
 | Power | sensor | W | needs `Power.Active.Import` in the meter values (set automatically for OCPP 1.6) |
 | Energy | sensor | kWh | the station's energy register – `total_increasing` |
@@ -39,7 +40,8 @@ On the **ChargeGate** hub device: *Running sessions* and *Stations online*.
 
 The card `custom:chargegate-card` shows every charging point with
 
-- **state:** offline, free, charging, connected (session running but no power flowing, e.g. car full), fault
+- **state:** offline, free, charging, **done** (with how long the car has been standing there full),
+  paused, connected, fault
 - **live power** as a bar, scaled to the charging point's maximum – learned automatically: 11 kW,
   or 22 kW as soon as more than 11.5 kW was measured once (stored, survives restarts)
 - **session duration**, counting live
@@ -66,6 +68,21 @@ show_soc: true                # optional: battery level, if reported
 ```
 
 For a full-screen view (e.g. a wall tablet) put it into a view of type **Panel**.
+
+## When is a car "done"?
+
+A wallbox doesn't know the battery level (see below), so ChargeGate decides from the power:
+
+| State | `phase` | Rule |
+|---|---|---|
+| Charging | `charging` | power is flowing (or stopped less than 3 minutes ago) |
+| **Done** | `done` | energy was delivered and no power has flowed for 3 minutes – full, or the car's own charge limit (e.g. 80 %) |
+| Paused | `paused` | the station holds back (`SuspendedEVSE`, e.g. load management) |
+| Connected | `connected` | session started, nothing charged yet |
+
+A car that pauses by itself mid-charge (e.g. departure timer, cheap-rate schedule) also shows **Done** –
+without the battery level that can't be told apart. Standalone: the 3 minutes can be changed with
+`DONE_AFTER_S`.
 
 ## Battery level (SoC)
 
@@ -111,7 +128,23 @@ All messages are retained.
 
 Deleting a station in ChargeGate removes its device from Home Assistant.
 
-## Example automation
+## Example automations
+
+Tell the employee's team when a car is done (works in any UI language thanks to the `phase` attribute):
+
+```yaml
+triggers:
+  - trigger: state
+    entity_id: sensor.duo_1_connector_1_state
+    attribute: phase
+    to: done
+actions:
+  - action: notify.notify
+    data:
+      message: >
+        {{ state_attr('sensor.duo_1_connector_1_status', 'employee') }}: your car at
+        Duo 1 is done – please move it so others can charge.
+```
 
 Notify when a charging point is free again:
 

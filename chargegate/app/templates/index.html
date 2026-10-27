@@ -26,7 +26,8 @@
         </div>
         <div class="tags">
           {% for c in st.connectors if c.connector_id > 0 %}
-            <span class="pill {{ c.status }}" title="{{ c.error_code or '' }}">{{ st.connector_label(c.connector_id) }} · {{ c.status }}</span>
+            {% set ph = phases.get((st.id, c.connector_id), 'free') %}
+            <span class="pill phase-{{ ph }}" title="OCPP: {{ c.status }}{{ ' – ' ~ c.error_code if c.error_code else '' }}">{{ st.connector_label(c.connector_id) }} · {{ '✓ ' if ph == 'done' }}{{ _('phase_' ~ ph) }}{% if ph == 'done' and done_since.get((st.id, c.connector_id)) %} {{ _('since') }} {{ done_since[(st.id, c.connector_id)]|local('time') }}{% endif %}</span>
           {% else %}<span class="meta">{{ _("no status yet") }}</span>{% endfor %}
         </div>
         <div class="meta">{{ _("last seen") }} {{ st.last_seen|ago }}</div>
