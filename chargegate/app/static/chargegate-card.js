@@ -8,13 +8,16 @@
  *
  *   type: custom:chargegate-card
  *   title: Charging points        # optional
- *   site: Head office             # optional: only stations of this site
+ *   site: Head office             # optional: only stations of this site (no site tabs)
+ *   sites: [Head office, Depot]   # optional: offer only these sites as tabs
+ *   default_site: Head office     # optional: tab selected at first (later: the viewer's last choice)
+ *   show_site_tabs: true          # optional: tabs to switch between sites (shown if there are several)
  *   stations: [DUO-01, EVE-01]    # optional: only these station IDs, in this order
  *   columns: 2                    # optional: fixed number of columns (default: responsive)
  *   show_employee: true           # optional
  *   show_soc: true                # optional: battery level, if the station reports it
  */
-const CG_VERSION = "1.5.0";
+const CG_VERSION = "1.8.0";
 
 const CG_TEXT = {
   en: {
@@ -23,6 +26,9 @@ const CG_TEXT = {
     connected: "Connected", fault: "Fault", unavailable: "Unavailable", reserved: "Reserved",
     connector: "Point", noStations: "No ChargeGate charging points found. Is the MQTT integration set up?",
     charging_now: "{n} charging", done_now: "{n} done", of: "of", kw: "kW", since: "since", soc: "Battery",
+    all_sites: "All", ed_title: "Title", ed_site: "Site", ed_all_tabs: "All sites (switch with tabs)",
+    ed_columns: "Columns", ed_auto: "automatic", ed_employee: "Show employee", ed_soc: "Show battery level",
+    ed_tabs: "Show site tabs", ed_default: "Tab selected at first",
   },
   de: {
     title: "Ladepunkte", offline: "Offline", free: "Frei", charging: "Lädt",
@@ -30,18 +36,62 @@ const CG_TEXT = {
     connected: "Verbunden", fault: "Störung", unavailable: "Nicht verfügbar", reserved: "Reserviert",
     connector: "Punkt", noStations: "Keine ChargeGate-Ladepunkte gefunden. Ist die MQTT-Integration eingerichtet?",
     charging_now: "{n} laden", done_now: "{n} fertig", of: "von", kw: "kW", since: "seit", soc: "Akkustand",
+    all_sites: "Alle", ed_title: "Titel", ed_site: "Standort", ed_all_tabs: "Alle Standorte (mit Reitern umschalten)",
+    ed_columns: "Spalten", ed_auto: "automatisch", ed_employee: "Mitarbeiter anzeigen", ed_soc: "Akkustand anzeigen",
+    ed_tabs: "Standort-Reiter anzeigen", ed_default: "Zuerst gewählter Reiter",
   },
 };
 
 class ChargeGateCard extends HTMLElement {
   setConfig(config) {
-    this._config = { show_employee: true, show_soc: true, ...(config || {}) };
+    this._config = { show_employee: true, show_soc: true, show_site_tabs: true, ...(config || {}) };
     this._sig = null;
+    this._selected = undefined;               // site chosen with the tabs (null = all)
     if (!this.shadowRoot) this.attachShadow({ mode: "open" });
   }
 
   static getStubConfig() {
     return {};
+  }
+
+  static getConfigElement() {
+    return document.createElement("chargegate-card-editor");
+  }
+
+  // --- site tabs ------------------------------------------------------------------------
+
+  _storeKey() {
+    return "chargegate-card-site:" + (this._config.title || "") + ":" + (this._config.sites || []).join("|");
+  }
+
+  _siteList(points) {
+    const names = [...new Set(points.map((p) => p.attributes.site || ""))];
+    const order = this._config.sites;
+    const list = order ? order.filter((s) => names.includes(s))
+      : names.filter((s) => s).sort((a, b) => a.localeCompare(b, undefined, { numeric: true }));
+    if (!order && names.includes("")) list.push("");          // stations without a site
+    return list;
+  }
+
+  _tabsActive(sites) {
+    return !this._config.site && this._config.show_site_tabs !== false && sites.length > 1;
+  }
+
+  _currentSite(sites) {
+    if (this._selected === undefined) {
+      let saved = null;
+      try { saved = window.localStorage.getItem(this._storeKey()); } catch (e) { /* storage blocked */ }
+      const wanted = saved !== null ? saved : this._config.default_site;
+      this._selected = wanted === "*" || wanted === undefined || wanted === null ? null : wanted;
+    }
+    return this._selected !== null && sites.includes(this._selected) ? this._selected : null;
+  }
+
+  _selectSite(site) {
+    this._selected = site;
+    try { window.localStorage.setItem(this._storeKey(), site === null ? "*" : site); } catch (e) { /* ignore */ }
+    this._sig = null;
+    this.hass = this._hass;
   }
 
   getCardSize() {
@@ -54,7 +104,7 @@ class ChargeGateCard extends HTMLElement {
 
   set hass(hass) {
     this._hass = hass;
-    const points = this._points();
+    const points = this._allPoints();
     const sig = JSON.stringify(points.map((p) => [p.entity_id, p.state, p.attributes])) + hass.language;
     if (sig === this._sig) return;          // nothing relevant changed
     this._sig = sig;
@@ -78,18 +128,25 @@ class ChargeGateCard extends HTMLElement {
     return s;
   }
 
-  _points() {
+  _allPoints() {
     if (!this._hass) return [];
     const cfg = this._config || {};
-    const pts = Object.values(this._hass.states).filter(
-      (s) => s.attributes && s.attributes.source === "chargegate" && s.attributes.connector !== undefined
-        && s.entity_id.startsWith("sensor.")
-    );
-    return pts.filter((s) => {
-      if (cfg.site && s.attributes.site !== cfg.site) return false;
-      if (cfg.stations && !cfg.stations.includes(s.attributes.station)) return false;
+    return Object.values(this._hass.states).filter((s) => {
+      const a = s.attributes;
+      if (!a || a.source !== "chargegate" || a.connector === undefined || !s.entity_id.startsWith("sensor.")) return false;
+      if (cfg.site && a.site !== cfg.site) return false;
+      if (cfg.sites && !cfg.sites.includes(a.site)) return false;
+      if (cfg.stations && !cfg.stations.includes(a.station)) return false;
       return true;
     });
+  }
+
+  _points() {
+    const all = this._allPoints();
+    const sites = this._siteList(all);
+    if (!this._tabsActive(sites)) return all;
+    const current = this._currentSite(sites);
+    return current === null ? all : all.filter((p) => (p.attributes.site || "") === current);
   }
 
   _stations(points) {
@@ -153,8 +210,12 @@ class ChargeGateCard extends HTMLElement {
     });
   }
 
-  _render(points) {
+  _render(allPoints) {
     const cfg = this._config;
+    const sites = this._siteList(allPoints);
+    const tabs = this._tabsActive(sites);
+    const current = tabs ? this._currentSite(sites) : null;
+    const points = current === null ? allPoints : allPoints.filter((p) => (p.attributes.site || "") === current);
     const stations = this._stations(points);
     const charging = points.filter((p) => this._state(p) === "charging").length;
     const done = points.filter((p) => this._state(p) === "done").length;
@@ -171,8 +232,24 @@ class ChargeGateCard extends HTMLElement {
           <div class="title">${this._esc(cfg.title || this._t("title"))}</div>
           <div class="summary">${this._esc(this._t("charging_now", { n: charging }))}${done ? " · " + this._esc(this._t("done_now", { n: done })) : ""} · ${this._kw(totalW)} ${this._t("kw")}</div>
         </div>
+        ${tabs ? this._tabs(sites, current, allPoints) : ""}
         <div class="grid" style="grid-template-columns:${cols}">${body}</div>
       </ha-card>`;
+    this.shadowRoot.querySelectorAll(".tab").forEach((el) => {
+      el.addEventListener("click", () => this._selectSite(el.dataset.site === "*" ? null : el.dataset.site));
+    });
+  }
+
+  _tabs(sites, current, allPoints) {
+    const busy = (site) => allPoints.filter((p) => (site === null || (p.attributes.site || "") === site)
+      && ["charging", "done", "connected", "paused"].includes(this._state(p))).length;
+    const tab = (site, label) => {
+      const n = busy(site);
+      return `<button class="tab ${current === site ? "on" : ""}" data-site="${site === null ? "*" : this._esc(site)}">
+        ${this._esc(label)}${n ? ` <span class="cnt">${n}</span>` : ""}</button>`;
+    };
+    return `<div class="tabs" role="tablist">${tab(null, this._t("all_sites"))}${
+      sites.map((s) => tab(s, s || "–")).join("")}</div>`;
   }
 
   _station(st) {
@@ -245,6 +322,15 @@ class ChargeGateCard extends HTMLElement {
               --cg-connected: var(--warning-color, #ffa000); --cg-done: #00897b; --cg-fault: var(--error-color, #db4437);
               --cg-offline: var(--disabled-text-color, #9e9e9e); }
       ha-card { padding: 16px; }
+      .tabs { display: flex; gap: 6px; flex-wrap: wrap; margin: -4px 0 12px; }
+      .tab { font: inherit; font-size: .9em; cursor: pointer; border-radius: 999px; padding: 4px 12px;
+             border: 1px solid var(--divider-color, rgba(127,127,127,.3)); background: transparent;
+             color: var(--secondary-text-color); display: inline-flex; align-items: center; gap: 6px; }
+      .tab:hover { color: var(--primary-text-color); }
+      .tab.on { background: var(--primary-color, #03a9f4); border-color: var(--primary-color, #03a9f4);
+                color: var(--text-primary-color, #fff); }
+      .tab .cnt { font-size: .8em; font-weight: 700; min-width: 18px; padding: 0 5px; border-radius: 999px;
+                  background: color-mix(in srgb, currentColor 18%, transparent); }
       .head { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; margin-bottom: 12px; flex-wrap: wrap; }
       .title { font-size: 1.25em; font-weight: 500; color: var(--primary-text-color); }
       .summary { color: var(--secondary-text-color); font-size: 0.95em; font-variant-numeric: tabular-nums; }
@@ -297,8 +383,87 @@ if (!customElements.get("chargegate-card")) {
     type: "chargegate-card",
     name: "ChargeGate",
     description: "All ChargeGate charging points: state, power, session duration and employee.",
-    preview: false,
+    preview: true,
     documentationURL: "https://github.com/kultikom/chargegate/blob/main/docs/home-assistant.md",
   });
   console.info(`%c ChargeGate card ${CG_VERSION} `, "background:#0f7a52;color:#fff;border-radius:4px");
+}
+
+
+// --- visual editor ----------------------------------------------------------------------------
+
+class ChargeGateCardEditor extends HTMLElement {
+  setConfig(config) {
+    this._config = { ...(config || {}) };
+    this._render();
+  }
+
+  set hass(hass) {
+    const first = !this._hass;
+    this._hass = hass;
+    if (first) this._render();
+  }
+
+  _t(key) {
+    const lang = (this._hass && this._hass.language || "en").slice(0, 2);
+    return (CG_TEXT[lang] || CG_TEXT.en)[key] || CG_TEXT.en[key] || key;
+  }
+
+  _sites() {
+    if (!this._hass) return [];
+    const names = new Set(Object.values(this._hass.states)
+      .filter((s) => s.attributes && s.attributes.source === "chargegate" && s.attributes.site)
+      .map((s) => s.attributes.site));
+    return [...names].sort((a, b) => a.localeCompare(b, undefined, { numeric: true }));
+  }
+
+  _esc(s) {
+    return String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+  }
+
+  _render() {
+    if (!this._config) return;
+    const c = this._config, sites = this._sites();
+    const opt = (v, label, sel) => `<option value="${this._esc(v)}" ${sel ? "selected" : ""}>${this._esc(label)}</option>`;
+    const check = (key, def) => `<label class="chk"><input type="checkbox" data-key="${key}" ${(c[key] ?? def) ? "checked" : ""}> ${this._esc(this._t("ed_" + { show_employee: "employee", show_soc: "soc", show_site_tabs: "tabs" }[key]))}</label>`;
+    if (!this.shadowRoot) this.attachShadow({ mode: "open" });
+    this.shadowRoot.innerHTML = `
+      <style>
+        .f { display: grid; gap: 12px; padding: 4px 0; }
+        label { display: grid; gap: 4px; font-size: 14px; color: var(--primary-text-color); }
+        .chk { display: flex; align-items: center; gap: 8px; }
+        input[type=text], input[type=number], select { font: inherit; padding: 8px; border-radius: 6px;
+          border: 1px solid var(--divider-color, #ccc); background: var(--card-background-color, #fff); color: inherit; }
+      </style>
+      <div class="f">
+        <label>${this._esc(this._t("ed_title"))}<input type="text" data-key="title" value="${this._esc(c.title || "")}" placeholder="${this._esc(this._t("title"))}"></label>
+        <label>${this._esc(this._t("ed_site"))}<select data-key="site">
+          ${opt("", this._t("ed_all_tabs"), !c.site)}${sites.map((s) => opt(s, s, c.site === s)).join("")}</select></label>
+        ${c.site ? "" : `<label>${this._esc(this._t("ed_default"))}<select data-key="default_site">
+          ${opt("", this._t("all_sites"), !c.default_site)}${sites.map((s) => opt(s, s, c.default_site === s)).join("")}</select></label>`}
+        <label>${this._esc(this._t("ed_columns"))}<input type="number" min="1" max="6" data-key="columns" value="${this._esc(c.columns || "")}" placeholder="${this._esc(this._t("ed_auto"))}"></label>
+        ${c.site ? "" : check("show_site_tabs", true)}
+        ${check("show_employee", true)}
+        ${check("show_soc", true)}
+      </div>`;
+    this.shadowRoot.querySelectorAll("[data-key]").forEach((el) => {
+      el.addEventListener("change", () => this._changed(el));
+    });
+  }
+
+  _changed(el) {
+    const key = el.dataset.key;
+    const cfg = { ...this._config };
+    let value = el.type === "checkbox" ? el.checked : el.value;
+    if (key === "columns") value = value ? Number(value) : "";
+    if (value === "" || value === null) delete cfg[key]; else cfg[key] = value;
+    if (key === "site" && value) { delete cfg.default_site; delete cfg.show_site_tabs; }
+    this._config = cfg;
+    this.dispatchEvent(new CustomEvent("config-changed", { detail: { config: cfg }, bubbles: true, composed: true }));
+    if (key === "site") this._render();
+  }
+}
+
+if (!customElements.get("chargegate-card-editor")) {
+  customElements.define("chargegate-card-editor", ChargeGateCardEditor);
 }

@@ -53,7 +53,8 @@ as energy meters. Details: [docs/home-assistant.md](https://github.com/kultikom/
 
 The app installs the ChargeGate card and creates a dashboard **Charging points** with all stations:
 state (incl. **Done** when a car has finished charging), live power bar (learns 11 or 22 kW),
-session duration and employee. After the first
+session duration and employee – with tabs to switch between sites (or pin a card to one site in its
+editor). After the first
 installation Home Assistant may ask for one restart. Turn it off with *Install the charging point
 dashboard*.
 

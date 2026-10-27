@@ -6,7 +6,7 @@ def _bool(name: str, default: bool = False) -> bool:
     return os.getenv(name, str(default)).strip().lower() in ("1", "true", "yes", "on")
 
 
-VERSION = "1.7.2"
+VERSION = "1.8.0"
 
 DATABASE_URL = os.getenv("DATABASE_URL", "sqlite+aiosqlite:///./chargegate.db")
 SECRET_KEY = os.getenv("SECRET_KEY", "change-me")

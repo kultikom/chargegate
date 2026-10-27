@@ -53,6 +53,11 @@ the card to `/config/www/chargegate/`, registers it as a dashboard resource and 
 **Charging points** once. If the `www` folder did not exist before, Home Assistant shows a notification
 asking for one restart. The dashboard is yours afterwards – edit or delete it, it won't be recreated.
 
+**Sites:** if your stations are at several sites, the card shows **tabs** to switch between them
+(*All · Site A · Site B …*, each with the number of busy charging points). Every browser remembers its
+choice, so a wall tablet at one site keeps showing that site. To pin a card to one site, pick it in
+the card's visual editor (or `site:` in YAML) – the tabs then disappear.
+
 **Standalone / manual:** copy `chargegate/app/static/chargegate-card.js` to `/config/www/chargegate/`,
 add `/local/chargegate/chargegate-card.js` as a *JavaScript module* under
 *Settings › Dashboards › ⋮ › Resources*, then add the card:
@@ -60,7 +65,10 @@ add `/local/chargegate/chargegate-card.js` as a *JavaScript module* under
 ```yaml
 type: custom:chargegate-card
 title: Charging points        # optional
-site: Head office             # optional: only stations of this site
+site: Head office             # optional: only stations of this site (no tabs)
+sites: [Head office, Depot]   # optional: offer only these sites as tabs
+default_site: Head office     # optional: tab selected at first (afterwards: the browser's last choice)
+show_site_tabs: true          # optional: tabs to switch between sites
 stations: [DUO-01, EVE-01]    # optional: only these station IDs, in this order
 columns: 2                    # optional: fixed number of columns (default: responsive)
 show_employee: true           # optional

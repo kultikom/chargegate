@@ -1,5 +1,14 @@
 # Changelog
 
+## 1.8.0
+
+- **Dashboard card: site tabs.** With stations at several sites the card shows tabs
+  "All · Site A · Site B …" (with the number of busy charging points). The choice is remembered per
+  browser – a wall tablet at one site keeps showing that site.
+- **Visual card editor:** pick a fixed site, the tab selected at first, columns and what to show –
+  no YAML needed
+- New card options `sites`, `default_site`, `show_site_tabs`
+
 ## 1.7.2
 
 - *Sessions*: a notice points to sessions a station sent afterwards in the last 14 days – they are
