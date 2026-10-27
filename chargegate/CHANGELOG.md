@@ -1,5 +1,10 @@
 # Changelog
 
+## 1.7.2
+
+- *Sessions*: a notice points to sessions a station sent afterwards in the last 14 days – they are
+  listed in the month they happened, not in the current month
+
 ## 1.7.1
 
 - **Fix: employee search** matched almost everybody – the query was also compared with tag UIDs

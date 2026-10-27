@@ -15,6 +15,10 @@
   <a class="btn ghost" style="flex:0;padding:8px 14px" href="{{ base }}/transactions.csv?{{ query }}">{{ _("CSV export") }}</a>
 </form>
 
+{% if hidden_late > 0 %}
+<div class="notice">{{ _("{n} sessions were sent afterwards by a station and are listed in the months they happened.", n=hidden_late) }}
+  <a href="{{ base }}/transactions?month=all">{{ _("Show all periods →") }}</a></div>
+{% endif %}
 <div class="grid" style="margin-bottom:20px">
   <div class="card"><h2>{{ _("Sessions") }}</h2><div class="stat">{{ txs|length }}</div></div>
   <div class="card"><h2>{{ _("Total energy") }}</h2><div class="stat">{{ total|kwh }}</div></div>

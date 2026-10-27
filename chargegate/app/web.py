@@ -619,6 +619,13 @@ async def transactions_page(request: Request, user=Depends(admin), month: str = 
                             employee: str = "", station: str = ""):
     txs, sites, employees, stations, months, label = await _transactions(month, site, employee, station)
     total = sum(t.energy_kwh or 0 for t in txs)
+    # Sessions a station sent afterwards land in the month they happened – point to them
+    hidden_late = 0
+    if label != "all":
+        async with Session() as s:
+            recent_late = (await s.execute(select(func.count()).select_from(Transaction).where(
+                Transaction.late.is_(True), Transaction.received_at > utcnow() - timedelta(days=14)))).scalar()
+        hidden_late = recent_late - sum(1 for t in txs if t.late)
     per_emp: dict[str, float] = {}
     for t in txs:
         key = t.employee.name if t.employee else (t.tag_uid or _("no tag"))
@@ -626,7 +633,7 @@ async def transactions_page(request: Request, user=Depends(admin), month: str = 
     query = urlencode({"month": label, "site": site, "employee": employee, "station": station})
     return render(request, "transactions.html", txs=txs, sites=sites, month=label, site=site,
                   employees=employees, employee=employee, stations=stations, station=station,
-                  months=months, query=query, total=total,
+                  months=months, query=query, total=total, hidden_late=hidden_late,
                   per_emp=sorted(per_emp.items(), key=lambda x: -x[1]))
 
 

@@ -177,7 +177,10 @@ DE = {
     "By employee": "Nach Mitarbeiter", "Start": "Start", "End": "Ende", "Energy": "Energie",
     "Reason": "Grund", "running": "läuft", "No sessions in this period.": "Keine Ladevorgänge in diesem Zeitraum.",
     "Connector": "Anschluss", "Meter start (Wh)": "Zähler Start (Wh)", "Meter end (Wh)": "Zähler Ende (Wh)",
-    "Stop reason": "Stoppgrund", "kWh": "kWh", "Battery": "Akkustand", "Period": "Zeitraum", "Reset": "Zurücksetzen",
+    "Stop reason": "Stoppgrund", "kWh": "kWh", "Battery": "Akkustand", "Period": "Zeitraum",
+    "{n} sessions were sent afterwards by a station and are listed in the months they happened.":
+        "{n} Ladevorgänge wurden von einer Wallbox nachgemeldet und stehen in dem Monat, in dem sie stattfanden.",
+    "Show all periods →": "Alle Zeiträume anzeigen →", "Reset": "Zurücksetzen",
     "{n} of {total} employees match “{q}”": "{n} von {total} Mitarbeitern passen zu „{q}“",
     "Energy dashboard": "Energie-Dashboard",
     "Counts in the Energy dashboard of this Home Assistant": "Zählt im Energie-Dashboard dieses Home Assistant",
