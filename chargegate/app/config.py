@@ -6,7 +6,7 @@ def _bool(name: str, default: bool = False) -> bool:
     return os.getenv(name, str(default)).strip().lower() in ("1", "true", "yes", "on")
 
 
-VERSION = "1.6.0"
+VERSION = "1.7.0"
 
 DATABASE_URL = os.getenv("DATABASE_URL", "sqlite+aiosqlite:///./chargegate.db")
 SECRET_KEY = os.getenv("SECRET_KEY", "change-me")
@@ -66,6 +66,8 @@ MQTT_BASE_TOPIC = os.getenv("MQTT_BASE_TOPIC", "chargegate")
 MQTT_DISCOVERY_PREFIX = os.getenv("MQTT_DISCOVERY_PREFIX", "homeassistant")
 # How the employee currently charging is shown in Home Assistant: name | initials | hidden
 HA_EMPLOYEE_DISPLAY = os.getenv("HA_EMPLOYEE_DISPLAY", "name")
+# Stations without a site: do they count in this Home Assistant's Energy dashboard?
+HA_ENERGY_NO_SITE = _bool("HA_ENERGY_NO_SITE", True)
 
 # Home Assistant app only: install the dashboard card and create the dashboard once
 HA_DASHBOARD = _bool("HA_DASHBOARD", False)

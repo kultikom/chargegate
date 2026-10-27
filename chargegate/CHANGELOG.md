@@ -1,5 +1,13 @@
 # Changelog
 
+## 1.7.0
+
+- **Energy dashboard per site:** under *Stations › Sites* each site has a switch *Energy dashboard*.
+  Only stations of ticked sites are published as energy meters (`device_class: energy`,
+  `state_class: total_increasing`) and can be added to this Home Assistant's Energy dashboard.
+  Stations at other sites keep all other entities and stay in the charging point card – their charging
+  is simply not counted as this building's consumption. Default: ticked (as before).
+
 ## 1.6.0
 
 - **Fix: sessions sent afterwards keep their real date.** Stations with an offline queue (seen on an

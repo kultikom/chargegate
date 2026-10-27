@@ -76,9 +76,14 @@
 
   <section class="card">
     <h2>{{ _("Sites") }}</h2>
+    <p class="muted" style="font-size:13px;margin-top:-6px">{{ _("Tick the sites whose charging is part of this building's consumption – only their stations can be added to the Energy dashboard of this Home Assistant.") }}</p>
     {% for s in sites %}
       <div class="row" style="align-items:center;margin-bottom:6px">
         <div>{{ s.name }}</div>
+        <form method="post" action="{{ base }}/sites/{{ s.id }}/energy" class="inline" style="flex:0 0 auto">
+          <label style="display:inline;font-weight:normal;color:inherit;white-space:nowrap" title="{{ _('Counts in the Energy dashboard of this Home Assistant') }}">
+            <input type="checkbox" name="enabled" value="1" {{ 'checked' if s.counts_energy }} onchange="this.form.submit()"> ⚡ {{ _("Energy dashboard") }}</label>
+        </form>
         <form method="post" action="{{ base }}/sites/{{ s.id }}/delete" class="inline" style="flex:0" onsubmit="return confirm('{{ _('Delete site?') }}')">
           <button class="ghost danger">{{ _("Remove") }}</button></form>
       </div>

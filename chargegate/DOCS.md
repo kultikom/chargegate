@@ -45,7 +45,9 @@ station networks of all sites.
 With the **Mosquitto broker** app and the **MQTT** integration installed, every approved station
 appears as a device with status, charging, power, energy and the employee charging. Add the
 **Energy** sensors under *Settings › Dashboards › Energy › Individual devices* to see where the
-energy goes. Details: [docs/home-assistant.md](https://github.com/kultikom/chargegate/blob/main/docs/home-assistant.md)
+energy goes. If your stations are spread over several sites, tick **⚡ Energy dashboard** under
+*Stations › Sites* only for the site of this Home Assistant – stations elsewhere are then not offered
+as energy meters. Details: [docs/home-assistant.md](https://github.com/kultikom/chargegate/blob/main/docs/home-assistant.md)
 
 ## Charging point dashboard
 

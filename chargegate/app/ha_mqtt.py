@@ -170,6 +170,7 @@ class Bridge:
             return
 
         connectors = [c for c in st.connectors if c.connector_id > 0]
+        counts_energy = st.site.counts_energy if st.site else config.HA_ENERGY_NO_SITE
         multi = len(connectors) > 1
         device = {"identifiers": [f"chargegate_{slug(sid)}"], "name": st.name or st.id,
                   "manufacturer": st.vendor or None, "model": st.model or None,
@@ -222,16 +223,19 @@ class Bridge:
                 **common, "name": name("power"), "unique_id": f"{uid}_power",
                 "value_template": "{{ value_json.power }}", "unit_of_measurement": "W",
                 "device_class": "power", "state_class": "measurement"})
+            # Only stations of sites "counting" here are energy meters for HA's Energy dashboard.
+            # Others still show their kWh, but without device_class/state_class they can't be
+            # picked there and don't create long-term energy statistics.
+            meter = ({"device_class": "energy", "state_class": "total_increasing"} if counts_energy
+                     else {"icon": "mdi:lightning-bolt-outline"})
             await self._config("sensor", node, f"{c}_energy", {
                 **common, "name": name("energy"), "unique_id": f"{uid}_energy",
                 "value_template": "{{ value_json.energy }}", "unit_of_measurement": "kWh",
-                "device_class": "energy", "state_class": "total_increasing",
-                "suggested_display_precision": 2})
+                **meter, "suggested_display_precision": 2})
             await self._config("sensor", node, f"{c}_session_energy", {
                 **common, "name": name("session_energy"), "unique_id": f"{uid}_session_energy",
                 "value_template": "{{ value_json.session_energy }}", "unit_of_measurement": "kWh",
-                "device_class": "energy", "state_class": "total_increasing",
-                "suggested_display_precision": 2})
+                **meter, "suggested_display_precision": 2})
             show_employee = config.HA_EMPLOYEE_DISPLAY != "hidden"
             await self._config("sensor", node, f"{c}_employee", {
                 **common, "name": name("employee"), "unique_id": f"{uid}_employee",

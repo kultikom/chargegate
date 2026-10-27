@@ -28,6 +28,7 @@ The Home Assistant app maps its options to the same variables.
 | `MQTT_BASE_TOPIC` | – | `chargegate` | |
 | `MQTT_DISCOVERY_PREFIX` | – | `homeassistant` | |
 | `HA_EMPLOYEE_DISPLAY` | `employee_display` | `name` | `name`, `initials` or `hidden` |
+| `HA_ENERGY_NO_SITE` | – | `true` | stations without a site count as energy meters in HA (per site: switch on the *Stations* page) |
 | `HA_DASHBOARD` | `ha_dashboard` | `false` (HA: `true`) | install the dashboard card, create the dashboard once |
 | `HA_CONFIG_DIR` | – | `/homeassistant` | where HA's config folder is mounted |
 | `ENTRA_TENANT_ID` | `entra_tenant_id` | – | |

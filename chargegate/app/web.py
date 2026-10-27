@@ -371,6 +371,18 @@ async def site_add(request: Request, user=Depends(admin), name: str = Form(...))
     return back("/stations")
 
 
+@web_app.post("/sites/{site_id}/energy")
+async def site_energy(request: Request, site_id: int, user=Depends(admin), enabled: str = Form("")):
+    async with Session() as s:
+        if site := await s.get(Site, site_id):
+            site.ha_energy = bool(enabled)
+            await s.commit()
+            flash(request, _("{name}: energy counts in Home Assistant", name=site.name) if site.ha_energy
+                  else _("{name}: energy no longer counts in Home Assistant", name=site.name))
+    core.notify_all()
+    return back("/stations")
+
+
 @web_app.post("/sites/{site_id}/delete")
 async def site_delete(request: Request, site_id: int, user=Depends(admin)):
     async with Session() as s:

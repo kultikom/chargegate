@@ -93,8 +93,22 @@ and shows it as soon as it arrives; nothing changes for stations that don't supp
 
 ## Energy dashboard
 
-**Settings › Dashboards › Energy › Individual devices › Add device** and pick the
-**Energy** sensor of each connector. The dashboard then shows how much energy goes into each
+Home Assistant usually runs at **one** site, but ChargeGate manages stations at several. Only the
+charging at *this* site belongs into its Energy dashboard – otherwise the individual devices add up to
+more than the grid supplied and *untracked consumption* becomes wrong.
+
+1. In ChargeGate under **Stations › Sites**, keep the switch **⚡ Energy dashboard** ticked only for the
+   site(s) this Home Assistant measures. Stations of other sites still appear with status, power and
+   employee, but their energy sensors are no longer energy meters and can't be picked in the Energy
+   dashboard. (Stations without a site count; standalone: `HA_ENERGY_NO_SITE=false` changes that.)
+2. **Settings › Dashboards › Energy › Individual devices › Add device** and pick the
+   **Energy** sensor of each connector of those stations.
+
+If you had already added stations of another site, remove them there. Home Assistant may then list
+their old statistics under *Developer tools › Statistics* as having no state class any more –
+*Fix issue* there removes them.
+
+The dashboard then shows how much energy goes into each charging point. The dashboard then shows how much energy goes into each
 charging point. The sensors use the stations' energy register, so nothing is lost when Home
 Assistant or ChargeGate restarts.
 

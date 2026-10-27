@@ -30,7 +30,14 @@ class Site(Base):
     __tablename__ = "sites"
     id: Mapped[int] = mapped_column(primary_key=True)
     name: Mapped[str] = mapped_column(String(100), unique=True)
+    # Energy of this site's stations counts in the Energy dashboard of this Home Assistant.
+    # Off for sites elsewhere – their charging is not part of this building's consumption.
+    ha_energy: Mapped[bool | None] = mapped_column(Boolean, default=True)
     stations: Mapped[list[Station]] = relationship(back_populates="site")
+
+    @property
+    def counts_energy(self) -> bool:
+        return self.ha_energy is not False
 
 
 class Station(Base):
