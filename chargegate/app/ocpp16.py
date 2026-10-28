@@ -98,7 +98,14 @@ class ChargePoint16(CP16):
         return call_result.MeterValues()
 
     @on(Action.data_transfer)
-    async def on_data_transfer(self, vendor_id, **kw):
+    async def on_data_transfer(self, vendor_id, message_id=None, data=None, **kw):
+        # Stations with a display (e.g. KultiWB on openWB series2) ask for the name that belongs
+        # to an accepted tag or PIN: vendorId "ChargeGate", messageId "EmployeeName", data = idTag.
+        if vendor_id == "ChargeGate":
+            if message_id == "EmployeeName" and data:
+                name = await core.employee_name(str(data))
+                return call_result.DataTransfer(status=DataTransferStatus.accepted, data=name or "")
+            return call_result.DataTransfer(status=DataTransferStatus.unknown_message_id)
         return call_result.DataTransfer(status=DataTransferStatus.unknown_vendor_id)
 
     @on(Action.firmware_status_notification)
