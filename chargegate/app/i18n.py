@@ -1,3 +1,5 @@
+# SPDX-License-Identifier: BUSL-1.1
+# Copyright (c) 2026 KultiKom GmbH & Co. KG – see LICENSE
 """Minimal translation layer. English is the source language, German the first translation.
 
 To add a language: add its code to LANGUAGES and a dictionary to CATALOGS.

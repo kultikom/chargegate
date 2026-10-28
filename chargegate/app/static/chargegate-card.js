@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: BUSL-1.1
+// Copyright (c) 2026 KultiKom GmbH & Co. KG – see LICENSE
 /*
  * ChargeGate dashboard card for Home Assistant
  * https://github.com/kultikom/chargegate

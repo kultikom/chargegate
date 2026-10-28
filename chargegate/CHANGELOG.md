@@ -1,5 +1,12 @@
 # Changelog
 
+## 1.9.0
+
+- **New license: Business Source License 1.1** (KultiKom GmbH & Co. KG). Free for production use with
+  up to 2 charging points and for evaluation/testing; a commercial license is required beyond that.
+  Each version becomes Apache-2.0 four years after its release. Versions up to 1.8.2 remain MIT.
+- No functional changes
+
 ## 1.8.2
 
 - **Fix: a charging station was shown as *Free* although a car was charging.** While a station is

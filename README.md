@@ -95,4 +95,15 @@ Has ChargeGate worked with your station? A pull request for this table is very w
 
 ## License
 
-[MIT](LICENSE) © KULTIKOM
+ChargeGate is **source-available** under the [Business Source License 1.1](LICENSE)
+© KultiKom GmbH & Co. KG:
+
+- **Free** for production use with up to **2 charging points** in total (e.g. one wallbox at home or
+  a single Compleo Duo), and always free for evaluation, testing and development
+- **Commercial license required** for more charging points, for offering ChargeGate to others as a
+  hosted or managed service, and for selling or bundling it – contact
+  [KultiKom](https://kultikom.de)
+- Each version becomes open source under the **Apache License 2.0** four years after its release
+
+Versions up to and including 1.8.2 were published under the MIT license and remain available under it.
+Third-party components: see [THIRD_PARTY_LICENSES.md](THIRD_PARTY_LICENSES.md).

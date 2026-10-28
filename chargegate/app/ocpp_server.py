@@ -1,3 +1,5 @@
+# SPDX-License-Identifier: BUSL-1.1
+# Copyright (c) 2026 KultiKom GmbH & Co. KG – see LICENSE
 """WebSocket endpoint for the charging stations (own port, reachable from station networks only).
 
 URL to configure in the station: ws://<server>:9000/ocpp/<ChargeBoxId>

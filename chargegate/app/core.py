@@ -1,3 +1,5 @@
+# SPDX-License-Identifier: BUSL-1.1
+# Copyright (c) 2026 KultiKom GmbH & Co. KG – see LICENSE
 """Version-independent logic: authorization, transactions, meter values, local list."""
 from __future__ import annotations
 

@@ -1,3 +1,5 @@
+# SPDX-License-Identifier: BUSL-1.1
+# Copyright (c) 2026 KultiKom GmbH & Co. KG – see LICENSE
 """Import employees and RFID tags from Microsoft Entra ID.
 
 Source: members of the group ENTRA_SYNC_GROUP_ID (nested groups included).

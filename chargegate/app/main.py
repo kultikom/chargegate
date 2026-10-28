@@ -1,3 +1,5 @@
+# SPDX-License-Identifier: BUSL-1.1
+# Copyright (c) 2026 KultiKom GmbH & Co. KG – see LICENSE
 """Run the OCPP server (stations) and the web UI (admins) in one process."""
 import asyncio
 import logging

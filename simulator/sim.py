@@ -1,3 +1,5 @@
+# SPDX-License-Identifier: BUSL-1.1
+# Copyright (c) 2026 KultiKom GmbH & Co. KG – see LICENSE
 """Charging station simulator for testing without real hardware.
 
   python sim.py --id TEST-01 --tag 04A2B3C4 --version 1.6

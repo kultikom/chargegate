@@ -73,6 +73,12 @@ secret and the object ID of the group of employees allowed to charge. Tag UIDs a
 disabled can no longer charge, and the tag list on the stations is updated automatically.
 Details: [docs/entra-id.md](https://github.com/kultikom/chargegate/blob/main/docs/entra-id.md)
 
+## License
+
+ChargeGate is source-available under the Business Source License 1.1: free with up to 2 charging
+points, a commercial license from KultiKom GmbH & Co. KG is required beyond that. Details:
+[LICENSE](https://github.com/kultikom/chargegate/blob/main/LICENSE).
+
 ## Data and backup
 
 All data is stored in an SQLite database in the app's data folder and is included in regular

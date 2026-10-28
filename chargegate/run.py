@@ -1,3 +1,5 @@
+# SPDX-License-Identifier: BUSL-1.1
+# Copyright (c) 2026 KultiKom GmbH & Co. KG – see LICENSE
 """Entry point inside the Home Assistant app: map /data/options.json and Supervisor info to env vars."""
 import asyncio
 import ipaddress

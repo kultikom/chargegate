@@ -1,3 +1,5 @@
+# SPDX-License-Identifier: BUSL-1.1
+# Copyright (c) 2026 KultiKom GmbH & Co. KG – see LICENSE
 """One-time setup inside Home Assistant (only when running as a Home Assistant app).
 
 1. Copy the ChargeGate dashboard card to <config>/www/chargegate/ (served as /local/…)

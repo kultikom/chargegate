@@ -1,3 +1,5 @@
+# SPDX-License-Identifier: BUSL-1.1
+# Copyright (c) 2026 KultiKom GmbH & Co. KG – see LICENSE
 """Web UI for admins (own port, internal/VPN only – or via Home Assistant ingress)."""
 from __future__ import annotations
 

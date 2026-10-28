@@ -1,3 +1,5 @@
+# SPDX-License-Identifier: BUSL-1.1
+# Copyright (c) 2026 KultiKom GmbH & Co. KG – see LICENSE
 """Publish stations and sessions to Home Assistant via MQTT discovery.
 
 Every approved station becomes a Home Assistant device with entities per connector:
