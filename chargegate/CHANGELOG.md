@@ -1,5 +1,15 @@
 # Changelog
 
+## 1.8.2
+
+- **Fix: a charging station was shown as *Free* although a car was charging.** While a station is
+  still sending its offline queue, the start of a new session waits behind the old messages (OCPP
+  sends transaction messages strictly in order), but status messages arrive at once. Without a known
+  session ChargeGate ignored the `Charging` status. Now the station's status counts: *Charging*,
+  *Paused* or *Connected*, with the employee who just presented a tag there (last 15 minutes).
+- When the delayed start finally arrives, the session counts as running (with its real start time)
+  as long as the connector is still busy; old replayed sessions that are still open are ignored
+
 ## 1.8.1
 
 - Dashboard card: the **site is chosen in the card editor** (edit mode) – viewers can't switch it.

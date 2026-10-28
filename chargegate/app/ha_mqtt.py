@@ -13,12 +13,12 @@ import logging
 import re
 
 import aiomqtt
-from sqlalchemy import func, select
+from sqlalchemy import select
 from sqlalchemy.orm import selectinload
 
 import config
 import core
-from db import Session, Station, Transaction, running_clause
+from db import Session, Station
 
 log = logging.getLogger("chargegate.mqtt")
 
@@ -45,6 +45,7 @@ _PHASES = {
            "reserved": "Reserviert"},
 }
 PHASES = _PHASES["de" if config.LANGUAGE == "de" else "en"]
+BUSY_PHASES = {"charging", "done", "paused", "connected"}
 
 
 def iso(dt) -> str | None:
@@ -150,9 +151,7 @@ class Bridge:
             **common, "name": NAMES["stations_online"], "unique_id": "chargegate_stations_online",
             "value_template": "{{ value_json.online }}", "state_class": "measurement",
             "icon": "mdi:lan-connect"})
-        async with Session() as s:
-            running = (await s.execute(select(func.count()).select_from(Transaction)
-                                       .where(running_clause()))).scalar()
+        running = len(await core.active_sessions())
         await self._pub(f"{BASE}/hub/state", json.dumps({"running": running, "online": len(core.connected)}))
         self._has_sessions = running > 0
 
@@ -161,9 +160,7 @@ class Bridge:
         async with Session() as s:
             st = (await s.execute(select(Station).where(Station.id == sid).options(
                 selectinload(Station.site), selectinload(Station.connectors)))).scalar_one_or_none()
-            txs = [] if st is None else (await s.execute(
-                select(Transaction).options(selectinload(Transaction.employee))
-                .where(Transaction.station_id == sid, running_clause()))).scalars().all()
+        active = {} if st is None else await core.active_sessions([sid])
 
         if st is None or not st.approved:
             await self._remove_station(sid, node)
@@ -189,7 +186,7 @@ class Bridge:
             "device_class": "connectivity", "entity_category": "diagnostic"})
         await self._pub(f"{station_topic}/online", "ON" if sid in core.connected else "OFF")
 
-        tx_by_connector = {t.connector_id: t for t in txs}
+        tx_by_connector = {c: t for (_sid, c), t in active.items()}
         for cs in connectors:
             c = cs.connector_id
             prefix = NAMES["connector"].format(c=c) + " " if multi else ""
@@ -273,9 +270,15 @@ class Bridge:
                 "soc": round(cs.soc) if cs.soc is not None and online else None,
                 "soc_start": round(tx.soc_start) if tx is not None and tx.soc_start is not None else None,
             }
+            if tx is None and phase in BUSY_PHASES:
+                # Session start not received yet (stuck in the station's queue): the station is
+                # busy anyway – show it as such, with whoever just presented a tag here
+                state["charging"] = True
             if show_employee:
-                state["employee"] = employee_label(
-                    (tx.employee.name if tx.employee else tx.tag_uid) if tx else None)
+                who = (tx.employee.name if tx.employee else tx.tag_uid) if tx else None
+                if tx is None and phase in BUSY_PHASES:
+                    who = await core.pending_authorization(sid, c, len(connectors) == 1)
+                state["employee"] = employee_label(who)
             await self._pub(state_topic, json.dumps(state, ensure_ascii=False))
         self._known[sid] = {c.connector_id for c in connectors}
 

@@ -6,7 +6,7 @@ import logging
 import time
 from datetime import UTC, datetime, timedelta
 
-from sqlalchemy import select
+from sqlalchemy import or_, select
 from sqlalchemy.orm import selectinload
 
 import config
@@ -228,9 +228,60 @@ def session_phase(cs, tx, online: bool, now=None) -> str:
         if delivered and cs.idle_since:
             return "charging"                       # just stopped drawing power – wait before "done"
         return "connected"
-    if status in ("Preparing", "Occupied", "SuspendedEV", "SuspendedEVSE", "Finishing"):
+    # No session known (yet) – e.g. the station's StartTransaction is still stuck behind its
+    # offline queue. Trust the station's own status.
+    if status == "Charging":
+        return "charging"
+    if status == "SuspendedEVSE":
+        return "paused"
+    if status in BUSY_STATES:
         return "connected"
     return "free"
+
+
+BUSY_STATES = {"Preparing", "Charging", "SuspendedEV", "SuspendedEVSE", "Occupied", "Finishing"}
+LATE_ACTIVE_WINDOW = timedelta(hours=24)
+
+
+async def active_sessions(station_ids: list[str] | None = None) -> dict[tuple[str, int | None], Transaction]:
+    """The session running right now on each (station, connector).
+
+    Sessions reported live count while open. A session the station sent afterwards counts only
+    if it started within the last 24 h and its connector is still busy: that is a live session whose
+    start was stuck behind the station's offline queue – not an old replayed one.
+    """
+    async with Session() as s:
+        stmt = (select(Transaction).options(selectinload(Transaction.employee),
+                                            selectinload(Transaction.station))
+                .where(Transaction.stopped_at.is_(None)).order_by(Transaction.started_at))
+        if station_ids is not None:
+            stmt = stmt.where(Transaction.station_id.in_(station_ids))
+        txs = (await s.execute(stmt)).scalars().all()
+        status = {(c.station_id, c.connector_id): c.status for c in (await s.execute(
+            select(ConnectorStatus) if station_ids is None else
+            select(ConnectorStatus).where(ConnectorStatus.station_id.in_(station_ids)))).scalars()}
+    now, active = utcnow(), {}
+    for tx in txs:                                   # oldest first – the newest wins per connector
+        if tx.late and not (tx.started_at > now - LATE_ACTIVE_WINDOW
+                            and status.get((tx.station_id, tx.connector_id)) in BUSY_STATES):
+            continue
+        active[(tx.station_id, tx.connector_id)] = tx
+    return active
+
+
+async def pending_authorization(station_id: str, connector_id: int, single_connector: bool) -> str | None:
+    """Who presented a tag here in the last 15 min – shown while the session start hasn't arrived."""
+    async with Session() as s:
+        stmt = (select(AuthEvent).options(selectinload(AuthEvent.employee))
+                .where(AuthEvent.station_id == station_id, AuthEvent.result == "Accepted",
+                       AuthEvent.ts > utcnow() - timedelta(minutes=15))
+                .order_by(AuthEvent.ts.desc()).limit(1))
+        stmt = stmt.where(AuthEvent.connector_id == connector_id) if not single_connector else \
+            stmt.where(or_(AuthEvent.connector_id.is_(None), AuthEvent.connector_id == connector_id))
+        ev = (await s.execute(stmt)).scalar_one_or_none()
+    if ev is None:
+        return None
+    return ev.employee.name if ev.employee else ev.tag_uid
 
 
 # --- Transactions ---------------------------------------------------------------------

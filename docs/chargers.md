@@ -91,6 +91,11 @@ of them – possibly years back – right after connecting to ChargeGate. They a
 date and marked *sent afterwards*; delete them under *Sessions* (filter by station and period, or
 *Clean up*) if you don't need them.
 
+The queue is sent at roughly one message every 3 seconds and can take **hours**. Meanwhile new
+sessions wait at its end – OCPP sends transaction messages strictly in order. ChargeGate shows such a
+charging point from the station's status (*Charging*, with the employee who presented a tag), but
+power, kWh and the session itself only appear once the queue has been worked through.
+
 The **Pro-line DE** is the variant compliant with German calibration law (Eichrecht). It additionally
 sends signed meter values (`SignedData`). ChargeGate ignores these and uses the regular energy
 register – fine for internal reporting. Compliant billing would require storing the signed records.

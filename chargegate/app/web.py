@@ -27,7 +27,7 @@ import core
 import entra_sync
 import i18n
 from db import (AuthEvent, Employee, Session, Site, Station, SyncState, Tag,
-                Transaction, hash_password, normalize_uid, running_clause, utcnow)
+                Transaction, hash_password, normalize_uid, utcnow)
 from i18n import t as _
 
 log = logging.getLogger("web")
@@ -270,19 +270,16 @@ async def dashboard(request: Request, user=Depends(admin)):
                                     )).scalars().all()
         pending = (await s.execute(select(func.count()).select_from(Station)
                                    .where(Station.approved.is_(False)))).scalar()
-        running = (await s.execute(select(Transaction).where(running_clause())
-                                   .options(selectinload(Transaction.employee),
-                                            selectinload(Transaction.station))
-                                   .order_by(Transaction.started_at.desc()))).scalars().all()
         events = (await s.execute(select(AuthEvent).options(selectinload(AuthEvent.employee))
                                   .order_by(AuthEvent.ts.desc()).limit(12))).scalars().all()
+    tx_at = await core.active_sessions()
+    running = sorted(tx_at.values(), key=lambda t: t.started_at, reverse=True)
     # group by site (sites by name, "no site" last), stations by name within each site
     groups: dict = {}
     for st in sorted(stations, key=station_key):
         groups.setdefault(st.site.name if st.site else None, []).append(st)
     groups = sorted(groups.items(), key=lambda g: (g[0] is None, natural_key(g[0])))
     # plain-language state per charging point (free / charging / done …), like in Home Assistant
-    tx_at = {(t.station_id, t.connector_id): t for t in running}
     phases = {(st.id, c.connector_id): core.session_phase(c, tx_at.get((st.id, c.connector_id)),
                                                           st.id in core.connected)
               for st in stations for c in st.connectors}
