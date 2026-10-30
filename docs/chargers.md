@@ -24,7 +24,8 @@ tag and start charging. Most issues (wrong ID, tag format, missing meter values)
 
 ## Compleo ducto (Solo / Duo)
 
-**Tested in production:** Compleo Duo SAM, Control Software 6.7.0. Setup notes are based on the
+**Tested in production:** Compleo Duo SAM, model **A110F32410.22** (reports itself as vendor
+`Compleo CS AG`), Control Software **6.7.0**, **6.15.3** and **6.18.7**. Setup notes are based on the
 firmware 6.5 guide; menu names were identical.
 
 Settings are made in the ducto web interface.
