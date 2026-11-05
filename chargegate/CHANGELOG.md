@@ -1,5 +1,14 @@
 # Changelog
 
+## 1.9.1
+
+- Support for **[KultiWB](https://github.com/kultikom/KultiWB)**, the OCPP firmware for openWB series2:
+  RFID or PIN on the box's touch display.
+- **PINs as tags**: a PIN (4–6 digits) can be added as a tag. Short values are no longer matched in
+  reversed byte order, so PIN `3412` can't unlock the owner of `1234`.
+- Stations can ask for the name behind an accepted tag (`DataTransfer`, vendor `ChargeGate`,
+  message `EmployeeName`) to greet the employee on their display.
+
 ## 1.9.0
 
 - **New license: Business Source License 1.1** (KultiKom GmbH & Co. KG). Free for production use with

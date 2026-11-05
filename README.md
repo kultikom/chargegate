@@ -84,6 +84,7 @@ Any station speaking OCPP 1.6J or 2.0.1 should work. Setup notes exist for:
 | Compleo ducto Duo SAM – model A110F32410.22 (vendor `Compleo CS AG`), FW 6.7.0, 6.15.3, 6.18.7 | 1.6J | **tested, in production use** – RFID, sessions, power, offline list |
 | Alfen Eve Single Pro-line – model NG910-60027 (vendor `Alfen BV`), FW 5.5.1-4099 | 1.6J | **tested, in production use** – incl. replay of its offline queue (ChargeGate ≥ 1.6.0) |
 | Alfen Eve Single Pro-line DE (Eichrecht) | 1.6J | setup documented, field test pending |
+| openWB series2 with [KultiWB](https://github.com/kultikom/KultiWB) | 1.6J | RFID **or PIN** on the touch display, greets the employee by name |
 
 Has ChargeGate worked with your station? A pull request for this table is very welcome.
 

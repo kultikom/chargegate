@@ -56,7 +56,9 @@ def notify_all() -> None:
 # --- Authorization ------------------------------------------------------------------
 
 def _reverse_bytes(uid: str) -> str | None:
-    if len(uid) % 2 or len(uid) < 4:
+    # Real RFID UIDs have at least 4 bytes (8 hex digits). Shorter values are PINs typed on a
+    # station display – reversing them would let "3412" unlock the owner of PIN "1234".
+    if len(uid) % 2 or len(uid) < 8:
         return None
     return "".join(uid[i:i + 2] for i in range(len(uid) - 2, -1, -2))
 
@@ -394,6 +396,16 @@ async def lookup_employee(raw_uid: str | None) -> int | None:
         tag = (await s.execute(select(Tag).where(Tag.uid.in_([uid, _reverse_bytes(uid) or uid]))))
         tag = tag.scalars().first()
         return tag.employee_id if tag else None
+
+
+async def employee_name(raw_uid: str | None) -> str | None:
+    """Name of the active employee owning a tag/PIN – shown on station displays that ask for it."""
+    emp_id = await lookup_employee(raw_uid)
+    if emp_id is None:
+        return None
+    async with Session() as s:
+        emp = await s.get(Employee, emp_id)
+        return emp.name if emp and emp.active else None
 
 
 # --- Meter values ---------------------------------------------------------------------
