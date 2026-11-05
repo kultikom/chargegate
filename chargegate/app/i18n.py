@@ -129,6 +129,22 @@ DE = {
     "New basic auth password": "Neues Basic-Auth-Passwort", "unchanged": "unverändert",
     "approved": "freigegeben", "remove password": "Passwort entfernen",
     "Send tag list now": "Chip-Liste jetzt senden",
+    "Update KultiWB": "KultiWB aktualisieren",
+    "Update all KultiWB ({n})": "Alle KultiWB aktualisieren ({n})",
+    "Update all online KultiWB stations? Each installs as soon as no car is charging.":
+        "Alle verbundenen KultiWB-Stationen aktualisieren? Jede installiert, sobald kein Auto lädt.",
+    "Update requested from {id} – it installs as soon as no car is charging":
+        "Update bei {id} angefordert – wird installiert, sobald kein Auto lädt",
+    "Update of {id} failed: {status}": "Update von {id} fehlgeschlagen: {status}",
+    "Update requested from {n} KultiWB stations": "Update bei {n} KultiWB-Stationen angefordert",
+    "update requested": "Update angefordert",
+    "downloading update": "lädt Update herunter",
+    "update downloaded": "Update geladen, wartet auf Installation",
+    "installing update": "installiert Update",
+    "update installed": "Update installiert",
+    "already up to date": "bereits aktuell",
+    "update download failed": "Download des Updates fehlgeschlagen",
+    "update failed": "Update fehlgeschlagen",
     "Delete station? Its sessions will be deleted as well.":
         "Station löschen? Ihre Ladevorgänge werden mitgelöscht.",
     "No stations yet. Point a station to this server or add one manually below.":

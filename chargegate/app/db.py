@@ -60,9 +60,16 @@ class Station(Base):
     last_seen: Mapped[datetime | None] = mapped_column(DateTime)
     local_list_pushed: Mapped[datetime | None] = mapped_column(DateTime)
     local_list_status: Mapped[str | None] = mapped_column(String(100))
+    fw_status: Mapped[str | None] = mapped_column(String(30))       # last FirmwareStatusNotification
+    fw_status_at: Mapped[datetime | None] = mapped_column(DateTime)
     site: Mapped[Site | None] = relationship(back_populates="stations")
     connectors: Mapped[list[ConnectorStatus]] = relationship(
         cascade="all, delete-orphan", order_by="ConnectorStatus.connector_id")
+
+    @property
+    def is_kultiwb(self) -> bool:
+        """KultiWB (openWB firmware by KultiKom) – can be updated from ChargeGate."""
+        return (self.vendor or "").upper() == "KULTIKOM" and (self.model or "").startswith("KultiWB")
 
     def connector_label(self, connector_id: int | None) -> str:
         """Name of a charging point, e.g. "Left" – falls back to "#1"."""

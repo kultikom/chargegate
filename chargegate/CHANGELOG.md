@@ -1,5 +1,14 @@
 # Changelog
 
+## 1.10.0
+
+- **Update KultiWB stations from ChargeGate**: *Stations › Edit › Update KultiWB*, or *Update all
+  KultiWB* at the top of the page. Sends OCPP `UpdateFirmware`; the station fetches the new version
+  itself and installs it as soon as no car is charging. Progress (downloading, installing,
+  installed, already up to date, failed) is shown in the *Device* column.
+- Firmware status notifications from all stations are stored (new nullable columns
+  `fw_status`, `fw_status_at` – added automatically on start)
+
 ## 1.9.1
 
 - Support for **[KultiWB](https://github.com/kultikom/KultiWB)**, the OCPP firmware for openWB series2:
