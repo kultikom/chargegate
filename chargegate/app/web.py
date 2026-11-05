@@ -73,6 +73,17 @@ def kwh(v: float | None) -> str:
     return "–" if v is None else i18n.number(v, 2) + " kWh"
 
 
+FW_STATUS = {  # FirmwareStatusNotification -> label
+    "Requested": "update requested", "Downloading": "downloading update", "Downloaded": "update downloaded",
+    "Installing": "installing update", "Installed": "update installed", "Idle": "already up to date",
+    "DownloadFailed": "update download failed", "InstallationFailed": "update failed",
+}
+
+
+def fw_status(value: str | None) -> str:
+    return _(FW_STATUS.get(value or "", value or ""))
+
+
 def list_status(value: str | None) -> str:
     if not value:
         return ""
@@ -99,7 +110,7 @@ def sync_summary(message: str | None) -> str:
     return text
 
 
-templates.env.filters.update(local=local, ago=ago, kwh=kwh, list_status=list_status,
+templates.env.filters.update(local=local, ago=ago, kwh=kwh, list_status=list_status, fw_status=fw_status,
                              sync_summary=sync_summary, result=i18n.result_label,
                              reason=i18n.reason_label)
 templates.env.globals.update(_=_, version=config.VERSION, ocpp_port=config.OCPP_PORT,
@@ -355,6 +366,26 @@ async def station_push(request: Request, sid: str, user=Depends(admin)):
     status = await core.push_local_list(sid)
     flash(request, _("Tag list to {id}: {status}", id=sid, status=list_status(status)),
           "ok" if status.startswith("ok") else "err")
+    return back("/stations")
+
+
+@web_app.post("/stations/{sid}/update-firmware")
+async def station_update_firmware(request: Request, sid: str, user=Depends(admin)):
+    status = await core.update_firmware(sid)
+    if status == "ok":
+        flash(request, _("Update requested from {id} – it installs as soon as no car is charging", id=sid))
+    else:
+        flash(request, _("Update of {id} failed: {status}", id=sid, status=_(status)), "err")
+    return back("/stations")
+
+
+@web_app.post("/stations/update-all-kultiwb")
+async def stations_update_all(request: Request, user=Depends(admin)):
+    async with Session() as s:
+        stations = (await s.execute(select(Station))).scalars().all()
+    ids = [st.id for st in stations if st.is_kultiwb and st.id in core.connected]
+    results = [await core.update_firmware(sid) for sid in ids]
+    flash(request, _("Update requested from {n} KultiWB stations", n=sum(r == "ok" for r in results)))
     return back("/stations")
 
 

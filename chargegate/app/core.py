@@ -512,6 +512,32 @@ async def push_local_list(station_id: str) -> str:
     return status
 
 
+KULTIWB_LATEST = "kultiwb:latest"   # KultiWB fetches the newest version from its own update source
+
+
+async def update_firmware(station_id: str) -> str:
+    """Ask a KultiWB station to update itself. Returns 'ok', 'offline' or 'error:<message>'.
+
+    The station reports progress with FirmwareStatusNotification (Downloading … Installed, or Idle
+    when it is already up to date). It installs only while no car is charging.
+    """
+    cp = connected.get(station_id)
+    if cp is None:
+        return "offline"
+    if cp.version != "1.6":
+        return "error:OCPP 1.6 only"
+    from ocpp.v16 import call as c16
+    try:
+        await cp.call(c16.UpdateFirmware(location=KULTIWB_LATEST,
+                                         retrieve_date=datetime.now(UTC).isoformat()))
+    except Exception as exc:  # noqa: BLE001
+        return f"error:{exc}"[:100]
+    await touch_station(station_id, fw_status="Requested", fw_status_at=utcnow())
+    notify(station_id)
+    log.info("Firmware update requested from %s", station_id)
+    return "ok"
+
+
 def station_config_16() -> list[tuple[str, list[str]]]:
     """Standard OCPP 1.6 keys understood by all common stations (e.g. Compleo, Alfen).
 

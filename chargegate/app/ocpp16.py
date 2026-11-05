@@ -12,6 +12,7 @@ from ocpp.v16.enums import Action, DataTransferStatus, RegistrationStatus
 
 import config
 import core
+from db import utcnow
 
 log = logging.getLogger("chargegate")
 
@@ -110,6 +111,9 @@ class ChargePoint16(CP16):
 
     @on(Action.firmware_status_notification)
     async def on_fw_status(self, status, **kw):
+        await core.touch_station(self.id, fw_status=status, fw_status_at=utcnow())
+        core.notify(self.id)
+        log.info("%s: firmware %s", self.id, status)
         return call_result.FirmwareStatusNotification()
 
     @on(Action.diagnostics_status_notification)
