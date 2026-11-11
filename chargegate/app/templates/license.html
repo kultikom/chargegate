@@ -1,0 +1,50 @@
+{% extends "base.html" %}
+{% block content %}
+<h1>{{ _("License") }}</h1>
+<p class="sub">{{ _("Free for up to {n} charging points. More charging points need a license key from KultiKom.", n=free) }}</p>
+
+<section class="card">
+  <h2>{{ _("Status") }}</h2>
+  <div class="table-wrap"><table>
+    <tr><td style="width:240px">{{ _("License") }}</td><td>
+      {% if license.status == "none" %}<span class="pill">{{ _("no license key – free version") }}</span>
+      {% elif license.status in ("valid", "expiring") %}<span class="pill ok">{{ _("valid") }}</span>
+      {% elif license.status == "grace" %}<span class="pill warn">{{ _("expired – grace period") }}</span>
+      {% elif license.status == "not_yet_valid" %}<span class="pill warn">{{ _("not yet valid") }}</span>
+      {% else %}<span class="pill err">{{ _("invalid") if license.status == "invalid" else _("expired") }}</span>{% endif %}
+      {% if license.error %}<span class="muted"> {{ _(license.error) }}</span>{% endif %}
+    </td></tr>
+    {% if license.customer %}<tr><td>{{ _("Licensee") }}</td><td>{{ license.customer }}</td></tr>{% endif %}
+    {% if license.license_id %}<tr><td>{{ _("License number") }}</td><td class="mono">{{ license.license_id }}
+      {% if license.license_type == "trial" %}<span class="pill warn">{{ _("trial") }}</span>{% endif %}</td></tr>{% endif %}
+    {% if license.valid_until %}<tr><td>{{ _("Valid until") }}</td><td>{{ license.valid_until.strftime("%d.%m.%Y") }}
+      {% if license.days_left is not none and license.days_left >= 0 %}<span class="muted">({{ _("{n} days left", n=license.days_left) }})</span>{% endif %}</td></tr>{% endif %}
+    <tr><td>{{ _("Charging points") }}</td><td><b>{{ license.used }}</b> {{ _("of") }} <b>{{ license.limit }}</b> {{ _("in use") }}
+      {% if license.over_limit and not license.in_transition %}<span class="pill err">{{ _("limit exceeded") }}</span>{% endif %}</td></tr>
+    {% if license.in_transition %}<tr><td>{{ _("Transition period") }}</td><td>{{ _("until {date} – nothing is blocked until then", date=license.transition_until.strftime("%d.%m.%Y")) }}</td></tr>{% endif %}
+    <tr><td>{{ _("Installation ID") }}</td><td class="mono">{{ installation_id }}
+      <span class="muted" style="font-size:12px">· {{ _("give this to KultiKom if the license should be bound to this installation") }}</span></td></tr>
+  </table></div>
+</section>
+
+<section class="card">
+  <h2>{{ _("License key") }}</h2>
+  <form method="post" action="{{ base }}/license">
+    <textarea name="key" rows="4" style="width:100%;font-family:monospace" placeholder="KL1.…" spellcheck="false">{{ license.key or "" }}</textarea>
+    <p><button>{{ _("Save") }}</button>
+    {% if license.key %}<button class="ghost danger" name="remove" value="1" onclick="return confirm('{{ _('Remove the license key? Only {n} charging points stay licensed.', n=free) }}')">{{ _("Remove") }}</button>{% endif %}</p>
+  </form>
+</section>
+
+<section class="card">
+  <h2>{{ _("Charging points in licensing order") }}</h2>
+  <p class="muted" style="font-size:13px;margin-top:-6px">{{ _("Charging points count in the order their stations were approved. Over the limit, the oldest keep working; stations approved later are blocked.") }}</p>
+  <div class="table-wrap"><table>
+    <tr><th>ID</th><th>{{ _("Name") }}</th><th>{{ _("Charging points") }}</th><th>{{ _("Status") }}</th></tr>
+    {% for st in license.stations %}
+    <tr><td class="mono">{{ st.id }}</td><td>{{ st.name or "–" }}</td><td>{{ st.points }}</td>
+      <td>{% if st.licensed %}<span class="pill ok">{{ _("licensed") }}</span>{% else %}<span class="pill err">{{ _("blocked – over the license limit") }}</span>{% endif %}</td></tr>
+    {% else %}<tr><td colspan="4" class="empty">{{ _("No approved stations yet.") }}</td></tr>{% endfor %}
+  </table></div>
+</section>
+{% endblock %}

@@ -1,5 +1,17 @@
 # Changelog
 
+## 1.11.0
+
+- **License page** (*License* in the menu): enter the KultiLic license key; shows licensee, term,
+  charging points in use / licensed and the installation ID. Keys are checked offline (Ed25519).
+- **Enforcement as described in the LICENSE**: 2 charging points free; with a key as many as licensed.
+  Over the limit the oldest charging points (by approval order) keep working, stations approved later
+  are blocked (tags rejected, empty local list) and marked on the stations page.
+- Subscriptions: warning 30 days before the end, 14 days grace, then back to the free tier.
+- **Transition period**: installations with more than 2 charging points when updating get 30 days to
+  enter a key – nothing is blocked until then; a banner shows the deadline.
+- New nullable column `stations.approved_at`, new table `app_settings`
+
 ## 1.10.0
 
 - **Update KultiWB stations from ChargeGate**: *Stations › Edit › Update KultiWB*, or *Update all

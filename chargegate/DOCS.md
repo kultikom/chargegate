@@ -83,3 +83,13 @@ points, a commercial license from KultiKom GmbH & Co. KG is required beyond that
 
 All data is stored in an SQLite database in the app's data folder and is included in regular
 Home Assistant backups.
+
+## License
+
+Without a license key, ChargeGate is free for **2 charging points**. For more, enter the license key
+from KultiKom under **License** in the menu (keys start with `KL1.`; line breaks from e-mails don't
+matter). The page also shows the installation ID – KultiKom can bind a license to it.
+
+Over the limit, the charging points approved first keep working; stations approved later are blocked
+until the license is extended. Installations that already had more than 2 charging points when
+updating to 1.11.0 get 30 days to enter a key.

@@ -22,4 +22,6 @@ the respective packages.
 | [websockets](https://github.com/python-websockets/websockets) | BSD-3-Clause |
 | [aiomqtt](https://github.com/empicano/aiomqtt) | BSD-3-Clause |
 | [paho-mqtt](https://github.com/eclipse-paho/paho.mqtt.python) | EPL-2.0 OR BSD-3-Clause (EDL-1.0) |
+| [cryptography](https://github.com/pyca/cryptography) | Apache-2.0 OR BSD-3-Clause |
+| `kultilic_verify.py` (KultiLic license verifier, KultiKom) | MIT |
 | [Python](https://www.python.org/) (container base image) | PSF License |

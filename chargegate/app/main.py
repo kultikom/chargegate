@@ -8,6 +8,7 @@ import uvicorn
 
 import config
 import core
+import licensing
 import ha_mqtt
 import ha_setup
 from db import init_db
@@ -21,6 +22,7 @@ logging.getLogger("ocpp").setLevel(logging.INFO if config.LOG_OCPP_MESSAGES else
 
 async def main():
     await init_db()
+    await licensing.start()
     if n := await core.backfill_auth_connectors():
         logging.info("Added the charging point to %s older log entries", n)
     servers = [
@@ -39,7 +41,15 @@ async def main():
         logging.info("Setting up the ChargeGate dashboard in Home Assistant")
     if ha_mqtt.start():
         logging.info("Home Assistant via MQTT: %s:%s", config.MQTT_HOST, config.MQTT_PORT)
-    await asyncio.gather(*(s.serve() for s in servers))
+    async def license_loop():          # dates move on: expiring, grace, expired
+        while True:
+            await asyncio.sleep(600)
+            try:
+                await licensing.refresh()
+            except Exception:  # noqa: BLE001
+                logging.exception("license refresh")
+
+    await asyncio.gather(license_loop(), *(s.serve() for s in servers))
 
 
 if __name__ == "__main__":

@@ -69,6 +69,7 @@ RESULTS = {"Accepted": "accepted", "Blocked": "blocked", "Invalid": "unknown"}
 REASONS = {
     "unknown_tag": "unknown tag",
     "tag_blocked": "tag blocked",
+    "license_limit": "station over the license limit",
     "employee_inactive": "employee deactivated",
     "reversed_byte_order": "UID matched in reversed byte order",
 }
@@ -129,6 +130,46 @@ DE = {
     "New basic auth password": "Neues Basic-Auth-Passwort", "unchanged": "unverändert",
     "approved": "freigegeben", "remove password": "Passwort entfernen",
     "Send tag list now": "Chip-Liste jetzt senden",
+    "License": "Lizenz",
+    "Free for up to {n} charging points. More charging points need a license key from KultiKom.":
+        "Kostenlos für bis zu {n} Ladepunkte. Für mehr Ladepunkte ist ein Lizenzschlüssel von KultiKom nötig.",
+    "no license key – free version": "kein Lizenzschlüssel – kostenlose Version",
+    "valid": "gültig", "expired – grace period": "abgelaufen – Kulanzzeit", "not yet valid": "noch nicht gültig",
+    "invalid": "ungültig", "expired": "abgelaufen",
+    "Licensee": "Lizenznehmer", "License number": "Lizenznummer", "trial": "Testlizenz",
+    "Valid until": "Gültig bis", "{n} days left": "noch {n} Tage",
+    "Charging points": "Ladepunkte", "of": "von", "in use": "belegt", "limit exceeded": "Limit überschritten",
+    "Transition period": "Übergangsfrist",
+    "until {date} – nothing is blocked until then": "bis {date} – bis dahin wird nichts gesperrt",
+    "Installation ID": "Installations-ID",
+    "give this to KultiKom if the license should be bound to this installation":
+        "an KultiKom geben, wenn die Lizenz an diese Installation gebunden werden soll",
+    "License key": "Lizenzschlüssel",
+    "Remove the license key? Only {n} charging points stay licensed.":
+        "Lizenzschlüssel entfernen? Dann sind nur noch {n} Ladepunkte lizenziert.",
+    "Charging points in licensing order": "Ladepunkte in Lizenz-Reihenfolge",
+    "Charging points count in the order their stations were approved. Over the limit, the oldest keep working; stations approved later are blocked.":
+        "Ladepunkte zählen in der Reihenfolge, in der ihre Stationen freigegeben wurden. Über dem Limit laufen die ältesten weiter, später freigegebene Stationen werden gesperrt.",
+    "licensed": "lizenziert", "blocked – over the license limit": "gesperrt – über dem Lizenzlimit",
+    "over the license limit": "über dem Lizenzlimit", "No approved stations yet.": "Noch keine freigegebenen Stationen.",
+    "License key removed": "Lizenzschlüssel entfernt", "License key saved": "Lizenzschlüssel gespeichert",
+    "The license key is not valid: {error}": "Der Lizenzschlüssel ist nicht gültig: {error}",
+    "{used} charging points in use, {free} are free. Please enter a license key by {date} – after that, stations beyond the limit are blocked.":
+        "{used} Ladepunkte in Betrieb, {free} sind kostenlos. Bitte bis {date} einen Lizenzschlüssel eintragen – danach werden Stationen über dem Limit gesperrt.",
+    "The license key is not valid – only {n} charging points are licensed.":
+        "Der Lizenzschlüssel ist nicht gültig – nur {n} Ladepunkte sind lizenziert.",
+    "License limit reached: {n} station(s) are blocked. Extend the license to use them.":
+        "Lizenzlimit erreicht: {n} Station(en) gesperrt. Lizenz erweitern, um sie zu nutzen.",
+    "The license has expired – grace period until {date}.": "Die Lizenz ist abgelaufen – Kulanzzeit bis {date}.",
+    "The license has expired – only {n} charging points are licensed.":
+        "Die Lizenz ist abgelaufen – nur {n} Ladepunkte sind lizenziert.",
+    "The license ends on {date} – please renew it.": "Die Lizenz endet am {date} – bitte verlängern.",
+    "station over the license limit": "Station über dem Lizenzlimit",
+    "unknown signing key": "Schlüssel wurde nicht von KultiKom für ChargeGate ausgestellt",
+    "signature invalid": "Signatur ungültig – Schlüssel unvollständig kopiert oder verändert",
+    "not a KultiLic key": "kein KultiLic-Lizenzschlüssel (beginnt mit KL1.)",
+    "license is bound to another installation": "Lizenz gehört zu einer anderen Installation",
+    "payload unreadable": "Schlüssel unvollständig kopiert",
     "Update KultiWB": "KultiWB aktualisieren",
     "Update all KultiWB ({n})": "Alle KultiWB aktualisieren ({n})",
     "Update all online KultiWB stations? Each installs as soon as no car is charging.":
