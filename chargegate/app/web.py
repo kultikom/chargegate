@@ -26,6 +26,7 @@ from starlette.middleware.sessions import SessionMiddleware
 
 import config
 import core
+import licensing
 import entra_sync
 import i18n
 from db import (AuthEvent, Employee, Session, Site, Station, SyncState, Tag,
@@ -183,6 +184,7 @@ def flash(request: Request, msg: str, kind: str = "ok") -> None:
 
 
 def render(request: Request, name: str, **ctx) -> HTMLResponse:
+    ctx.setdefault("license", licensing.current())
     ctx.update(request=request, user=current_user(request), base=_base.get(),
                lang=i18n.current(), via_ingress="ingress_user" in request.scope,
                flashes=request.session.pop("flash", []), path=request.url.path)
@@ -335,6 +337,10 @@ async def station_save(request: Request, user=Depends(admin), id: str = Form(...
         st = await s.get(Station, sid) or Station(id=sid)
         st.name = name.strip() or None
         st.site_id = int(site_id) if site_id else None
+        if approved and not st.approved:
+            st.approved_at = utcnow()          # licensing counts charging points in approval order
+        elif not approved:
+            st.approved_at = None
         st.approved = bool(approved)
         if connector_names is not None:
             cleaned = ", ".join(n.strip() for n in connector_names.split(","))
@@ -346,6 +352,8 @@ async def station_save(request: Request, user=Depends(admin), id: str = Form(...
         s.add(st)
         await s.commit()
     core.notify(sid)
+    await licensing.refresh()
+    core.schedule_push_all(delay=2)
     flash(request, _("Station {id} saved", id=sid))
     return back("/stations")
 
@@ -387,6 +395,28 @@ async def stations_update_all(request: Request, user=Depends(admin)):
     results = [await core.update_firmware(sid) for sid in ids]
     flash(request, _("Update requested from {n} KultiWB stations", n=sum(r == "ok" for r in results)))
     return back("/stations")
+
+
+@web_app.get("/license", response_class=HTMLResponse)
+async def license_page(request: Request, user=Depends(admin)):
+    state = await licensing.refresh()
+    return render(request, "license.html", license=state, installation_id=await licensing.installation_id(),
+                  free=licensing.FREE_CHARGING_POINTS)
+
+
+@web_app.post("/license")
+async def license_save(request: Request, user=Depends(admin), key: str = Form(""), remove: str = Form("")):
+    if remove:
+        await licensing.set_key(None)
+        flash(request, _("License key removed"))
+    else:
+        state = await licensing.set_key(key.strip() or None)
+        if state.status == "invalid":
+            flash(request, _("The license key is not valid: {error}", error=state.error or ""), "err")
+        else:
+            flash(request, _("License key saved"))
+    core.schedule_push_all(delay=1)        # stations that are (no longer) blocked get their tag list
+    return back("/license")
 
 
 @web_app.post("/sites/add")

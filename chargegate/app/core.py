@@ -12,6 +12,7 @@ from sqlalchemy import or_, select
 from sqlalchemy.orm import selectinload
 
 import config
+import licensing
 from db import (AuthEvent, ConnectorStatus, Employee, Session, Station, Tag,
                 Transaction, normalize_uid, utcnow)
 
@@ -84,7 +85,9 @@ async def authorize(station_id: str, raw_uid: str, connector_id: int | None = No
             if tag:
                 reason = "reversed_byte_order"
 
-        if tag is None:
+        if tag is not None and not await licensing.station_licensed(station_id):
+            status, emp_id, reason = "Blocked", tag.employee_id, "license_limit"
+        elif tag is None:
             status, emp_id, reason = "Invalid", None, "unknown_tag"
         elif not tag.active:
             status, emp_id, reason = "Blocked", tag.employee_id, "tag_blocked"
@@ -482,7 +485,8 @@ async def push_local_list(station_id: str) -> str:
     from ocpp.v16 import call as c16
     from ocpp.v201 import call as c201
 
-    uids = await active_uids()
+    # stations beyond the license limit get an empty list, so they can't charge offline either
+    uids = await active_uids() if await licensing.station_licensed(station_id) else []
     chunk = config.LOCAL_LIST_CHUNK
     parts = [uids[i:i + chunk] for i in range(0, len(uids), chunk)] or [[]]
     version = int(time.time()) % 2_000_000_000

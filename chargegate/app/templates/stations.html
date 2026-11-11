@@ -22,6 +22,7 @@
         {% elif st.id in online %}<span class="pill ok">{{ _("online") }}</span>
         {% else %}<span class="pill">{{ _("offline") }}</span>{% endif %}
         {% if st.password_hash %}<span class="pill" title="{{ _('Basic auth enabled') }}">🔒</span>{% endif %}
+        {% if st.id in license.blocked %}<br><a href="{{ base }}/license" class="pill err">{{ _("over the license limit") }}</a>{% endif %}
         {% if st.local_list_status %}<br><span class="muted" style="font-size:12px" title="{{ st.local_list_pushed|local }}">{{ _("Tag list:") }} {{ st.local_list_status|list_status }}</span>{% endif %}
       </td>
       <td class="muted">{{ st.last_seen|ago }}<br><span class="mono">{{ st.remote_addr or '' }}</span></td>

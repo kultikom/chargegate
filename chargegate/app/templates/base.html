@@ -20,12 +20,22 @@
       <a href="{{ base }}/employees" class="{{ 'on' if path.startswith('/employees') }}">{{ _("Employees & tags") }}</a>
       <a href="{{ base }}/transactions" class="{{ 'on' if path.startswith('/transactions') }}">{{ _("Sessions") }}</a>
       <a href="{{ base }}/log" class="{{ 'on' if path.startswith('/log') }}">{{ _("Log") }}</a>
+      <a href="{{ base }}/license" class="{{ 'on' if path.startswith('/license') }}">{{ _("License") }}</a>
     </nav>
     <span class="who">{{ user }}{% if not via_ingress %} · <a href="{{ base }}/logout">{{ _("Sign out") }}</a>{% endif %}</span>
   </div>
 </header>
 {% endif %}
 <main>
+  {% if user and license and license.banner and not path.startswith('/license') %}{% set b = license.banner %}
+  <div class="flash {{ b[0] }}"><a href="{{ base }}/license" style="color:inherit">
+    {% if b[1] == "transition" %}{{ _("{used} charging points in use, {free} are free. Please enter a license key by {date} – after that, stations beyond the limit are blocked.", used=license.used, free=license.limit, date=license.transition_until.strftime("%d.%m.%Y")) }}
+    {% elif b[1] == "invalid" %}{{ _("The license key is not valid – only {n} charging points are licensed.", n=license.limit) }}
+    {% elif b[1] == "blocked" %}{{ _("License limit reached: {n} station(s) are blocked. Extend the license to use them.", n=license.blocked|length) }}
+    {% elif b[1] == "grace" %}{{ _("The license has expired – grace period until {date}.", date=license.grace_until.strftime("%d.%m.%Y") if license.grace_until else "") }}
+    {% elif b[1] == "expired" %}{{ _("The license has expired – only {n} charging points are licensed.", n=license.limit) }}
+    {% elif b[1] == "expiring" %}{{ _("The license ends on {date} – please renew it.", date=license.valid_until.strftime("%d.%m.%Y")) }}{% endif %}
+  </a></div>{% endif %}
   {% for kind, msg in flashes %}<div class="flash {{ kind }}">{{ msg }}</div>{% endfor %}
   {% block content %}{% endblock %}
 </main>

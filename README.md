@@ -106,5 +106,9 @@ ChargeGate is **source-available** under the [Business Source License 1.1](LICEN
   [KultiKom](https://kultikom.de)
 - Each version becomes open source under the **Apache License 2.0** four years after its release
 
+License keys from KultiKom are entered on the **License** page. They are checked offline – ChargeGate
+never contacts KultiKom. Without a key 2 charging points are licensed; over the limit, the oldest
+charging points keep working and stations approved later are blocked.
+
 Versions up to and including 1.8.2 were published under the MIT license and remain available under it.
 Third-party components: see [THIRD_PARTY_LICENSES.md](THIRD_PARTY_LICENSES.md).

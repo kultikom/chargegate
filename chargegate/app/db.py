@@ -60,6 +60,7 @@ class Station(Base):
     last_seen: Mapped[datetime | None] = mapped_column(DateTime)
     local_list_pushed: Mapped[datetime | None] = mapped_column(DateTime)
     local_list_status: Mapped[str | None] = mapped_column(String(100))
+    approved_at: Mapped[datetime | None] = mapped_column(DateTime)  # order of approval = order of licensing
     fw_status: Mapped[str | None] = mapped_column(String(30))       # last FirmwareStatusNotification
     fw_status_at: Mapped[datetime | None] = mapped_column(DateTime)
     site: Mapped[Site | None] = relationship(back_populates="stations")
@@ -181,6 +182,13 @@ class AuthEvent(Base):
     connector_id: Mapped[int | None] = mapped_column(Integer)  # known once charging starts
     employee_id: Mapped[int | None] = mapped_column(ForeignKey("employees.id", ondelete="SET NULL"))
     employee: Mapped[Employee | None] = relationship()
+
+
+class AppSetting(Base):
+    """Small key/value store (license key, installation ID, …)."""
+    __tablename__ = "app_settings"
+    key: Mapped[str] = mapped_column(String(50), primary_key=True)
+    value: Mapped[str | None] = mapped_column(String(4000))
 
 
 class SyncState(Base):

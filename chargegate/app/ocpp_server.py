@@ -52,6 +52,7 @@ async def _check_station(station_id: str, ws: WebSocket) -> str | None:
         st = await s.get(Station, station_id)
         if st is None:
             s.add(Station(id=station_id, approved=not config.REQUIRE_STATION_APPROVAL,
+                          approved_at=None if config.REQUIRE_STATION_APPROVAL else utcnow(),
                           remote_addr=remote, last_seen=utcnow()))
             await s.commit()
             if config.REQUIRE_STATION_APPROVAL:
