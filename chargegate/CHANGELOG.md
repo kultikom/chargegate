@@ -1,5 +1,13 @@
 # Changelog
 
+## 1.14.0
+
+- **Cars as Home Assistant devices** (optional, off by default): *Vehicles › Show the cars in Home
+  Assistant as devices*. Per car: battery, charge limit, range, plugged in, charging, time to full,
+  full at, vehicle state, the station it is charging at, assigned employee (follows the privacy
+  option) and last update – no YAML needed. Switching it off removes the devices.
+- Unknown values are sent to Home Assistant as `None` (shown as *unknown*).
+
 ## 1.13.0
 
 - **Dashboard card** (Charging points): the car charging is shown under the power bar – name, battery

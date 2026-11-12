@@ -81,6 +81,9 @@
       <div><label>{{ _("TeslaMate MQTT topic") }}</label><input name="topic" value="{{ settings.topic }}" placeholder="teslamate"></div>
       <button style="flex:0">{{ _("Save") }}</button>
     </div>
+    <label style="display:flex;gap:8px;align-items:center;font-weight:400;font-size:14px;color:inherit;margin-top:12px">
+      <input type="checkbox" name="ha" value="1" {{ 'checked' if settings.ha }}>
+      {{ _("Show the cars in Home Assistant as devices (battery, charge limit, range, plugged in, charging, full at, employee, charging at)") }}</label>
   </form>
   {% if settings.source == "teslamate" %}
   <p style="margin-bottom:0">

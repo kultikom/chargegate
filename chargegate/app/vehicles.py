@@ -51,18 +51,22 @@ SESSION_KEYS = {"display_name", "battery_level", "charge_limit_soc", "rated_batt
 class Settings:
     source: str = "off"
     topic: str = DEFAULT_TOPIC
+    ha: bool = False            # cars as devices in Home Assistant (MQTT discovery)
 
 
 async def settings() -> Settings:
     source = await licensing.get_setting("vehicle_source") or "off"
     topic = await licensing.get_setting("teslamate_topic") or DEFAULT_TOPIC
-    return Settings(source if source in SOURCES else "off", topic)
+    ha = await licensing.get_setting("vehicles_ha") == "1"
+    return Settings(source if source in SOURCES else "off", topic, ha)
 
 
-async def configure(source: str, topic: str) -> Settings:
+async def configure(source: str, topic: str, ha: bool = False) -> Settings:
     await licensing.set_setting("vehicle_source", source if source in SOURCES else "off")
     await licensing.set_setting("teslamate_topic", topic.strip().strip("/") or DEFAULT_TOPIC)
+    await licensing.set_setting("vehicles_ha", "1" if ha else "0")
     await restart()
+    core.notify_vehicle(None)          # Home Assistant: add or remove the cars
     return await settings()
 
 
@@ -150,6 +154,7 @@ async def handle(source: str, external_id: str, key: str, payload: str, now: dat
         newly_plugged = apply(v, key, payload, now)
         await s.commit()
         vid = v.id
+    core.notify_vehicle(vid)
     if newly_plugged:
         await match_open_sessions(vid)
     elif key in SESSION_KEYS:

@@ -34,6 +34,24 @@ Per connector (prefixed with "Connector N" on stations with several connectors, 
 
 On the **ChargeGate** hub device: *Running sessions* and *Stations online*.
 
+**Cars (optional):** with *Show the cars in Home Assistant as devices* on the *Vehicles* page, every car
+from the vehicle data source (TeslaMate) becomes a device of its own – off by default:
+
+| Entity | Type | Unit | Notes |
+|---|---|---|---|
+| Battery | sensor | % | battery level |
+| Charge limit | sensor | % | |
+| Range | sensor | km | rated range |
+| Plugged in | binary sensor (plug) | | |
+| Charging | binary sensor | | |
+| Time to full / Full at | sensor | h / timestamp | until the charge limit, only while charging |
+| Vehicle state | sensor | | e.g. online, asleep, driving, charging (from TeslaMate) |
+| Charging at | sensor | | ChargeGate station of the running session, `–` otherwise |
+| Employee | sensor | | assigned employee – follows the privacy option |
+| Last update | sensor (diagnostic) | timestamp | last value from the data source |
+
+Switching the option off removes the car devices again.
+
 ## Charging point dashboard
 
 ![Charging point dashboard](images/dashboard.png)
