@@ -11,6 +11,7 @@ import core
 import licensing
 import ha_mqtt
 import ha_setup
+import vehicles
 from db import init_db
 from ocpp_server import ocpp_app
 from web import web_app
@@ -41,6 +42,7 @@ async def main():
         logging.info("Setting up the ChargeGate dashboard in Home Assistant")
     if ha_mqtt.start():
         logging.info("Home Assistant via MQTT: %s:%s", config.MQTT_HOST, config.MQTT_PORT)
+    await vehicles.start()
     async def license_loop():          # dates move on: expiring, grace, expired
         while True:
             await asyncio.sleep(600)

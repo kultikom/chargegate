@@ -1,0 +1,104 @@
+{% extends "base.html" %}
+{% block content %}
+<h1>{{ _("Vehicles") }}</h1>
+<p class="sub">{{ _("Assign each car to the employee who drives it. ChargeGate then knows which car is charging and shows its battery level here, in Home Assistant and on KultiWB displays.") }}</p>
+
+{% if settings.source != "off" %}
+<section class="card">
+  <h2>{{ _("Cars") }}</h2>
+  <div class="table-wrap"><table>
+    <tr><th>{{ _("Car") }}</th><th>{{ _("Employee") }}</th><th class="num">{{ _("Battery") }}</th><th>{{ _("Plugged in") }}</th><th>{{ _("Charging at") }}</th><th></th></tr>
+    {% for v in cars %}
+    {% set soc = fresh_soc(v) %}
+    {% set tx = charging_in.get(v.id) %}
+    <tr>
+      <td><strong>{{ v.label }}</strong><br><span class="muted mono" style="font-size:12px">{{ "TeslaMate" if v.source == "teslamate" else v.source }} · ID {{ v.external_id }}</span></td>
+      <td>
+        <form method="post" action="{{ base }}/vehicles/{{ v.id }}/assign">
+          <select name="employee_id" onchange="this.form.submit()" aria-label="{{ _('Employee') }}">
+            <option value="">{{ _("– nobody –") }}</option>
+            {% for e in employees %}<option value="{{ e.id }}" {{ 'selected' if v.employee_id == e.id }}>{{ e.name }}</option>{% endfor %}
+            {% if v.employee and not v.employee.active %}<option value="{{ v.employee.id }}" selected>{{ v.employee.name }} ({{ _("deactivated") }})</option>{% endif %}
+          </select>
+          <noscript><button class="ghost">{{ _("Save") }}</button></noscript>
+        </form>
+      </td>
+      <td class="num">{% if soc is not none %}<b>{{ soc|round|int }} %</b>{% if v.limit_soc %} <span class="muted">/ {{ v.limit_soc|round|int }} %</span>{% endif %}
+        {% if v.range_km is not none %}<br><span class="muted">{{ v.range_km|round|int }} km</span>{% endif %}{% else %}<span class="muted">–</span>{% endif %}
+        <br><span class="muted" style="font-size:12px">{{ v.updated|ago }}</span></td>
+      <td>{% if v.plugged %}<span class="pill ok">{{ _("yes") }}</span>{% if v.plugged_since %}<br><span class="muted" style="font-size:12px">{{ _("since {time}", time=v.plugged_since|local('time')) }}</span>{% endif %}
+        {% elif v.plugged is sameas false %}<span class="muted">{{ _("no") }}</span>{% else %}<span class="muted">–</span>{% endif %}</td>
+      <td>{% if tx %}{{ tx.station.name or tx.station_id }}{% if tx.station.connector_names %} · {{ tx.station.connector_label(tx.connector_id) }}{% endif %}{% else %}<span class="muted">–</span>{% endif %}</td>
+      <td style="text-align:right">
+        <form method="post" action="{{ base }}/vehicles/{{ v.id }}/delete" class="inline"
+              onsubmit="return confirm('{{ _('Remove {name}? It shows up again as soon as the data source reports it.', name=v.label)|e }}')">
+          <button class="ghost danger">{{ _("Remove") }}</button></form>
+      </td>
+    </tr>
+    {% else %}
+    <tr><td colspan="6" class="empty">{{ _("No cars yet. They appear as soon as the data source reports them – a Tesla when it wakes up (e.g. open the Tesla app).") }}</td></tr>
+    {% endfor %}
+  </table></div>
+</section>
+
+<section class="card">
+  <h2>{{ _("Running sessions") }}</h2>
+  <p class="muted" style="font-size:13px;margin-top:-6px">{{ _("The car is found automatically: the employee's car, otherwise the car plugged in at the same time. Correct it here if needed, e.g. when two cars were plugged in at the same moment.") }}</p>
+  {% if running %}
+  <div class="table-wrap"><table>
+    <tr><th>{{ _("Employee") }}</th><th>{{ _("Station") }}</th><th>{{ _("Since") }}</th><th>{{ _("Car") }}</th></tr>
+    {% for t in running %}
+    <tr>
+      <td>{{ t.employee.name if t.employee else (t.tag_uid or '–') }}</td>
+      <td>{{ t.station.name or t.station_id }}{% if t.station.connector_names %} · {{ t.station.connector_label(t.connector_id) }}{% endif %}</td>
+      <td>{{ t.started_at|local('time') }}</td>
+      <td>
+        <form method="post" action="{{ base }}/vehicles/session/{{ t.id }}" class="row" style="flex-wrap:nowrap;align-items:center">
+          <select name="vehicle_id" onchange="this.form.submit()" aria-label="{{ _('Car') }}" style="min-width:160px">
+            <option value="">{{ _("– unknown –") }}</option>
+            {% for v in cars %}<option value="{{ v.id }}" {{ 'selected' if t.vehicle_id == v.id }}>{{ v.label }}</option>{% endfor %}
+          </select>
+          {% if t.vehicle_match %}<span class="muted" style="font-size:12px;flex:0 0 auto">{{ _("match_" ~ t.vehicle_match) }}</span>{% endif %}
+          <noscript><button class="ghost">{{ _("Save") }}</button></noscript>
+        </form>
+      </td>
+    </tr>
+    {% endfor %}
+  </table></div>
+  {% else %}<div class="empty">{{ _("Nobody is charging right now.") }}</div>{% endif %}
+</section>
+{% endif %}
+
+<section class="card">
+  <h2>{{ _("Data source") }}</h2>
+  <form method="post" action="{{ base }}/vehicles/settings">
+    <div class="row">
+      <div><label>{{ _("Source") }}</label>
+        <select name="source">
+          <option value="off" {{ 'selected' if settings.source == 'off' }}>{{ _("off") }}</option>
+          <option value="teslamate" {{ 'selected' if settings.source == 'teslamate' }}>TeslaMate (MQTT)</option>
+        </select></div>
+      <div><label>{{ _("TeslaMate MQTT topic") }}</label><input name="topic" value="{{ settings.topic }}" placeholder="teslamate"></div>
+      <button style="flex:0">{{ _("Save") }}</button>
+    </div>
+  </form>
+  {% if settings.source == "teslamate" %}
+  <p style="margin-bottom:0">
+    {% if not mqtt %}<span class="pill err">{{ _("no MQTT broker") }}</span>
+      <span class="muted">{{ _("ChargeGate reads TeslaMate from the MQTT broker it uses for Home Assistant – switch on MQTT in the app configuration.") }}</span>
+    {% elif feed and feed.connected %}<span class="pill ok">{{ _("connected") }}</span>
+      <span class="muted">{{ _("last value {ago}", ago=feed.last_message|ago) if feed.last_message else _("no values received yet") }}</span>
+    {% else %}<span class="pill warn">{{ _("not connected") }}</span>
+      {% if feed and feed.error %}<span class="muted">{{ feed.error }}</span>{% endif %}{% endif %}
+  </p>
+  {% endif %}
+  <details style="margin-top:14px"><summary>{{ _("Set up TeslaMate") }}</summary>
+    <ol class="muted" style="font-size:14px;line-height:1.6;margin:0;padding-left:20px">
+      <li>{{ _("TeslaMate has to publish to the same MQTT broker as ChargeGate – in Home Assistant the Mosquitto app.") }}</li>
+      <li>{{ _("In Mosquitto, create a user for TeslaMate (option “logins”).") }}</li>
+      <li>{{ _("Set MQTT_HOST, MQTT_USERNAME and MQTT_PASSWORD in TeslaMate and restart it.") }}</li>
+      <li>{{ _("Choose TeslaMate as source here. The cars appear as soon as they wake up; then assign them to employees.") }}</li>
+    </ol>
+  </details>
+</section>
+{% endblock %}

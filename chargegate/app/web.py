@@ -19,7 +19,7 @@ from fastapi import Depends, FastAPI, Form, HTTPException, Request
 from fastapi.responses import HTMLResponse, RedirectResponse, StreamingResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
-from sqlalchemy import delete, func, select
+from sqlalchemy import delete, func, select, update
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import selectinload
 from starlette.middleware.sessions import SessionMiddleware
@@ -29,8 +29,9 @@ import core
 import licensing
 import entra_sync
 import i18n
+import vehicles
 from db import (AuthEvent, Employee, Session, Site, Station, SyncState, Tag,
-                Transaction, hash_password, normalize_uid, utcnow)
+                Transaction, Vehicle, hash_password, normalize_uid, utcnow)
 from i18n import t as _
 
 log = logging.getLogger("web")
@@ -535,6 +536,7 @@ async def employee_edit(request: Request, emp_id: int, user=Depends(admin), name
 async def employee_delete(request: Request, emp_id: int, user=Depends(admin)):
     async with Session() as s:
         if emp := await s.get(Employee, emp_id):
+            await s.execute(update(Vehicle).where(Vehicle.employee_id == emp_id).values(employee_id=None))
             await s.delete(emp)
             await s.commit()
     core.schedule_push_all()
@@ -600,6 +602,61 @@ async def tag_delete(request: Request, tag_id: int, user=Depends(admin)):
     return back("/employees")
 
 
+# --- Vehicles ------------------------------------------------------------------------------------
+
+@web_app.get("/vehicles", response_class=HTMLResponse)
+async def vehicles_page(request: Request, user=Depends(admin)):
+    async with Session() as s:
+        cars = (await s.execute(select(Vehicle).options(selectinload(Vehicle.employee)))).scalars().all()
+        employees = sorted((await s.execute(select(Employee).where(Employee.active))).scalars().all(),
+                           key=lambda e: natural_key(e.name))
+    cars = sorted(cars, key=lambda v: natural_key(v.label))
+    running = sorted((await core.active_sessions()).values(), key=lambda t: t.started_at, reverse=True)
+    charging_in = {t.vehicle_id: t for t in running if t.vehicle_id}
+    return render(request, "vehicles.html", cars=cars, employees=employees, running=running,
+                  charging_in=charging_in, settings=await vehicles.settings(), feed=vehicles.feed,
+                  mqtt=vehicles.mqtt_configured(), fresh_soc=vehicles.fresh_soc)
+
+
+@web_app.post("/vehicles/settings")
+async def vehicles_settings(request: Request, user=Depends(admin), source: str = Form("off"),
+                            topic: str = Form("")):
+    st = await vehicles.configure(source, topic)
+    if st.source != "off" and not vehicles.mqtt_configured():
+        flash(request, _("Saved – but no MQTT broker is configured, see below"), "warn")
+    else:
+        flash(request, _("Saved"))
+    return back("/vehicles")
+
+
+@web_app.post("/vehicles/{vid}/assign")
+async def vehicle_assign(request: Request, vid: int, user=Depends(admin), employee_id: str = Form("")):
+    async with Session() as s:
+        if v := await s.get(Vehicle, vid):
+            v.employee_id = int(employee_id) if employee_id.isdigit() else None
+            await s.commit()
+            flash(request, _("{name} saved", name=v.label))
+    return back("/vehicles")
+
+
+@web_app.post("/vehicles/{vid}/delete")
+async def vehicle_delete(request: Request, vid: int, user=Depends(admin)):
+    async with Session() as s:
+        if v := await s.get(Vehicle, vid):
+            await s.execute(update(Transaction).where(Transaction.vehicle_id == vid).values(vehicle_id=None))
+            await s.delete(v)
+            await s.commit()
+            flash(request, _("{name} removed", name=v.label))
+    core.notify_all()
+    return back("/vehicles")
+
+
+@web_app.post("/vehicles/session/{tx_id}")
+async def vehicle_session(request: Request, tx_id: int, user=Depends(admin), vehicle_id: str = Form("")):
+    await vehicles.set_session_vehicle(tx_id, int(vehicle_id) if vehicle_id.isdigit() else None)
+    return back("/vehicles")
+
+
 @web_app.post("/sync")
 async def sync_now(request: Request, user=Depends(admin)):
     if not config.ENTRA_SYNC_ENABLED:
@@ -648,7 +705,7 @@ async def _transactions(month: str, site: str, employee: str = "", station: str 
     conds, label = _session_filter(month, site, employee, station)
     async with Session() as s:
         stmt = (select(Transaction)
-                .options(selectinload(Transaction.employee),
+                .options(selectinload(Transaction.employee), selectinload(Transaction.vehicle),
                          selectinload(Transaction.station).selectinload(Station.site))
                 .where(*conds).order_by(Transaction.started_at.desc()))
         txs = (await s.execute(stmt)).scalars().all()
@@ -755,7 +812,7 @@ async def transactions_csv(user=Depends(admin), month: str = "", site: str = "",
     # German Excel expects ";" and decimal commas
     w = csv.writer(buf, delimiter=";" if i18n.current() == "de" else ",")
     w.writerow([_(h) for h in ("Start", "End", "Site", "Station", "Connector", "Employee", "Email",
-                               "Tag", "kWh", "Meter start (Wh)", "Meter end (Wh)", "SoC start (%)", "SoC end (%)",
+                               "Tag", "Vehicle", "kWh", "Meter start (Wh)", "Meter end (Wh)", "SoC start (%)", "SoC end (%)",
                                "Stop reason")])
     for t in txs:
         w.writerow([local(t.started_at), local(t.stopped_at) if t.stopped_at else ("" if t.late else _("running")),
@@ -764,6 +821,7 @@ async def transactions_csv(user=Depends(admin), month: str = "", site: str = "",
                     t.station.connector_label(t.connector_id) if t.station else (t.connector_id or ""),
                     t.employee.name if t.employee else "",
                     (t.employee.email or "") if t.employee else "", t.tag_uid or "",
+                    t.vehicle.label if t.vehicle else "",
                     i18n.number(t.energy_kwh, 3) if t.energy_kwh is not None else "",
                     t.meter_start_wh or "", t.meter_stop_wh or "",
                     "" if t.soc_start is None else round(t.soc_start),

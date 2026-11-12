@@ -54,6 +54,14 @@ def notify_all() -> None:
     notify(None)
 
 
+_start_hooks: list = []
+
+
+def on_session_start(fn) -> None:
+    """async fn(transaction id) runs in the background after a live session started."""
+    _start_hooks.append(fn)
+
+
 # --- Authorization ------------------------------------------------------------------
 
 def _reverse_bytes(uid: str) -> str | None:
@@ -259,7 +267,8 @@ async def active_sessions(station_ids: list[str] | None = None) -> dict[tuple[st
     """
     async with Session() as s:
         stmt = (select(Transaction).options(selectinload(Transaction.employee),
-                                            selectinload(Transaction.station))
+                                            selectinload(Transaction.station),
+                                            selectinload(Transaction.vehicle))
                 .where(Transaction.stopped_at.is_(None)).order_by(Transaction.started_at))
         if station_ids is not None:
             stmt = stmt.where(Transaction.station_id.in_(station_ids))
@@ -322,6 +331,9 @@ async def start_transaction(station_id: str, connector_id: int | None, raw_uid: 
             tx.ocpp_tx_id = str(tx.id)
         await s.commit()
     notify(station_id)
+    if stopped_at is None and not tx.late:
+        for fn in _start_hooks:
+            asyncio.create_task(fn(tx.id))
     return tx
 
 

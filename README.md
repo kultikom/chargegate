@@ -18,6 +18,9 @@ Runs as a **Home Assistant app** (e.g. on a Home Assistant Green) or **standalon
 - **Station approval** – unknown stations are detected but rejected until an admin approves them;
   optional basic auth per station
 - **Sessions & energy** – kWh per session and employee, filter by month/site, CSV export
+- **Vehicles & battery level** – cars from TeslaMate (MQTT) are assigned to employees in the UI;
+  ChargeGate knows which car is charging, records the battery level per session and shows it in
+  Home Assistant and on KultiWB displays
 - **Home Assistant entities** – who is charging, power and energy per charging point,
   ready for the Energy dashboard (MQTT discovery, see [docs](docs/home-assistant.md))
 - **Charging point dashboard** for Home Assistant – all stations at a glance with state, live power,
