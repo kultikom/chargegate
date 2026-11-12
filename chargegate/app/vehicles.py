@@ -40,9 +40,9 @@ PLUG_WINDOW = timedelta(minutes=5)      # plug-in at the car and session start w
 FRESH = timedelta(hours=12)             # older battery values are not used
 START_DELAY_S = 2                        # let the station receive its transaction ID first
 TESLAMATE_KEYS = ("display_name", "battery_level", "charge_limit_soc", "plugged_in", "charging_state",
-                  "rated_battery_range_km", "est_battery_range_km", "state")
+                  "rated_battery_range_km", "est_battery_range_km", "state", "time_to_full_charge")
 SESSION_KEYS = {"display_name", "battery_level", "charge_limit_soc", "rated_battery_range_km",
-                "est_battery_range_km"}
+                "est_battery_range_km", "time_to_full_charge"}
 
 
 # --- Settings -----------------------------------------------------------------------------
@@ -112,12 +112,23 @@ def apply(v: Vehicle, key: str, payload: str, now: datetime) -> bool:
             v.plugged_since = None
         # plugged and previously unknown (first message after setup): plug-in time unknown
         v.plugged = plugged
+    elif key == "time_to_full_charge":
+        v.time_to_full_h = _num(payload)
     elif key == "charging_state":
         v.charging_state = payload.strip()[:30] or None
     elif key == "state":
         v.state = payload.strip()[:30] or None
     v.updated = now
     return newly_plugged
+
+
+def full_at(v: Vehicle, now: datetime | None = None) -> datetime | None:
+    """When the car reaches its charge limit (UTC), if the source says so and it is charging."""
+    if not v.time_to_full_h or v.time_to_full_h <= 0 or v.updated is None or fresh_soc(v, now) is None:
+        return None
+    if v.charging_state and v.charging_state.lower() != "charging":
+        return None
+    return v.updated + timedelta(hours=v.time_to_full_h)
 
 
 def fresh_soc(v: Vehicle, now: datetime | None = None) -> float | None:

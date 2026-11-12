@@ -20,6 +20,7 @@ from sqlalchemy.orm import selectinload
 
 import config
 import core
+import vehicles
 from db import Session, Station
 
 log = logging.getLogger("chargegate.mqtt")
@@ -271,8 +272,15 @@ class Bridge:
                 "session_start": iso(tx.started_at) if tx is not None else None,
                 "soc": round(cs.soc) if cs.soc is not None and online else None,
                 "soc_start": round(tx.soc_start) if tx is not None and tx.soc_start is not None else None,
-                "vehicle": tx.vehicle.label if tx is not None and tx.vehicle is not None else None,
             }
+            car = tx.vehicle if tx is not None and online else None
+            state.update({     # the car charging here (Vehicles page) – name hidden like the employee
+                "vehicle": car.label if car is not None and config.HA_EMPLOYEE_DISPLAY != "hidden" else None,
+                "soc_limit": round(car.limit_soc) if car is not None and car.limit_soc is not None else None,
+                "range_km": round(car.range_km) if car is not None and car.range_km is not None
+                            and vehicles.fresh_soc(car) is not None else None,
+                "full_at": iso(vehicles.full_at(car)) if car is not None else None,
+            })
             if tx is None and phase in BUSY_PHASES:
                 # Session start not received yet (stuck in the station's queue): the station is
                 # busy anyway – show it as such, with whoever just presented a tag here

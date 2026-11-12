@@ -1,5 +1,15 @@
 # Changelog
 
+## 1.13.0
+
+- **Dashboard card** (Charging points): the car charging is shown under the power bar – name, battery
+  with a marker at the charge limit, battery level start → now, charge limit, range and **“full at”**
+  (from TeslaMate's `time_to_full_charge`). New card option `show_vehicle` (on by default, also in the
+  card editor).
+- New state attributes per charging point: `vehicle`, `soc_limit`, `range_km`, `full_at`. The car's
+  name follows the privacy option (hidden with *Employee shown: hidden*).
+- TeslaMate value `time_to_full_charge` is read (new nullable column `vehicles.time_to_full_h`).
+
 ## 1.12.0
 
 - **Vehicles** (new page): cars from **TeslaMate** (MQTT, same broker as for Home Assistant) appear
