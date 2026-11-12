@@ -1,5 +1,10 @@
 # Changelog
 
+## 1.11.1
+
+- License check uses the signing key of the KultiLic product `chargegate` (key ID `4daf1b7e`).
+  The key of 1.11.0 (`71aa244b`) is no longer accepted – no licenses were issued with it.
+
 ## 1.11.0
 
 - **License page** (*License* in the menu): enter the KultiLic license key; shows licensee, term,
