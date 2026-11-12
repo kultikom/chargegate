@@ -40,7 +40,7 @@ def pick_language(cookie_header: str, accept_language: str) -> str:
     return "en"
 
 
-_EN = {"Superseded": "no stop received, ended by the next session","phase_offline": "Offline", "phase_free": "Free", "phase_connected": "Connected",
+_EN = {"match_employee": "employee's car", "match_plug_time": "found by plug-in time", "match_manual": "set by hand", "Superseded": "no stop received, ended by the next session","phase_offline": "Offline", "phase_free": "Free", "phase_connected": "Connected",
        "phase_charging": "Charging", "phase_done": "Done", "phase_paused": "Paused",
        "phase_fault": "Fault", "phase_unavailable": "Unavailable", "phase_reserved": "Reserved"}
 
@@ -274,6 +274,38 @@ DE = {
     "unknown tag": "Chip unbekannt", "tag blocked": "Chip gesperrt",
     "employee deactivated": "Mitarbeiter deaktiviert",
     "UID matched in reversed byte order": "UID in umgekehrter Byte-Reihenfolge erkannt",
+    # vehicles
+    "Vehicles": "Fahrzeuge", "Cars": "Fahrzeuge", "Car": "Fahrzeug", "Vehicle": "Fahrzeug",
+    "Assign each car to the employee who drives it. ChargeGate then knows which car is charging and shows its battery level here, in Home Assistant and on KultiWB displays.":
+        "Ordne jedes Fahrzeug dem Mitarbeiter zu, der es fährt. ChargeGate weiß dann, welches Auto gerade lädt, und zeigt den Akkustand hier, in Home Assistant und auf KultiWB-Displays.",
+    "Plugged in": "Eingesteckt", "Charging at": "Lädt an", "– nobody –": "– niemand –",
+    "yes": "ja", "no": "nein", "since {time}": "seit {time}",
+    "Remove {name}? It shows up again as soon as the data source reports it.":
+        "{name} entfernen? Das Fahrzeug erscheint wieder, sobald die Datenquelle es meldet.",
+    "No cars yet. They appear as soon as the data source reports them – a Tesla when it wakes up (e.g. open the Tesla app).":
+        "Noch keine Fahrzeuge. Sie erscheinen, sobald die Datenquelle sie meldet – ein Tesla, sobald er aufwacht (z. B. Tesla-App öffnen).",
+    "The car is found automatically: the employee's car, otherwise the car plugged in at the same time. Correct it here if needed, e.g. when two cars were plugged in at the same moment.":
+        "Das Fahrzeug wird automatisch erkannt: das Fahrzeug des Mitarbeiters, sonst das Fahrzeug, das zur gleichen Zeit eingesteckt wurde. Bei Bedarf hier korrigieren, z. B. wenn zwei Autos im selben Moment eingesteckt wurden.",
+    "– unknown –": "– unbekannt –",
+    "match_employee": "Fahrzeug des Mitarbeiters", "match_plug_time": "erkannt am Einsteckzeitpunkt",
+    "match_manual": "von Hand gesetzt",
+    "Data source": "Datenquelle", "off": "aus", "TeslaMate MQTT topic": "TeslaMate-MQTT-Topic",
+    "no MQTT broker": "kein MQTT-Broker",
+    "ChargeGate reads TeslaMate from the MQTT broker it uses for Home Assistant – switch on MQTT in the app configuration.":
+        "ChargeGate liest TeslaMate über den MQTT-Broker, den es auch für Home Assistant nutzt – MQTT in der App-Konfiguration einschalten.",
+    "connected": "verbunden", "not connected": "nicht verbunden", "last value {ago}": "letzter Wert {ago}",
+    "no values received yet": "noch keine Werte empfangen", "Set up TeslaMate": "TeslaMate einrichten",
+    "TeslaMate has to publish to the same MQTT broker as ChargeGate – in Home Assistant the Mosquitto app.":
+        "TeslaMate muss an denselben MQTT-Broker senden wie ChargeGate – in Home Assistant die Mosquitto-App.",
+    "In Mosquitto, create a user for TeslaMate (option “logins”).":
+        "In Mosquitto einen Benutzer für TeslaMate anlegen (Option „logins“).",
+    "Set MQTT_HOST, MQTT_USERNAME and MQTT_PASSWORD in TeslaMate and restart it.":
+        "In TeslaMate MQTT_HOST, MQTT_USERNAME und MQTT_PASSWORD setzen und neu starten.",
+    "Choose TeslaMate as source here. The cars appear as soon as they wake up; then assign them to employees.":
+        "Hier TeslaMate als Quelle wählen. Die Fahrzeuge erscheinen, sobald sie aufwachen; dann den Mitarbeitern zuordnen.",
+    "Saved": "Gespeichert", "Saved – but no MQTT broker is configured, see below":
+        "Gespeichert – aber es ist kein MQTT-Broker eingerichtet, siehe unten",
+    "{name} removed": "{name} entfernt",
 }
 
 CATALOGS = {"de": DE}

@@ -271,6 +271,7 @@ class Bridge:
                 "session_start": iso(tx.started_at) if tx is not None else None,
                 "soc": round(cs.soc) if cs.soc is not None and online else None,
                 "soc_start": round(tx.soc_start) if tx is not None and tx.soc_start is not None else None,
+                "vehicle": tx.vehicle.label if tx is not None and tx.vehicle is not None else None,
             }
             if tx is None and phase in BUSY_PHASES:
                 # Session start not received yet (stuck in the station's queue): the station is

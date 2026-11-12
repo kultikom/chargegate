@@ -1,5 +1,18 @@
 # Changelog
 
+## 1.12.0
+
+- **Vehicles** (new page): cars from **TeslaMate** (MQTT, same broker as for Home Assistant) appear
+  automatically with battery level, charge limit, range and plug state, and are **assigned to
+  employees** here – ChargeGate is the one place for this.
+- **Car per session**: the employee's car, otherwise the car plugged in within 5 minutes of the
+  session start; can be corrected for running sessions on the *Vehicles* page.
+- **Battery level per session** (start → end) from the car – in *Sessions*, the overview, the CSV
+  export (new column *Vehicle*) and Home Assistant (*Battery* sensor, `vehicle` attribute).
+- **KultiWB displays** get the car's name and battery level from ChargeGate (OCPP DataTransfer
+  `ChargeGate` / `VehicleInfo`, sent on changes and answered on request).
+- New table `vehicles`, new nullable columns `transactions.vehicle_id`, `transactions.vehicle_match`
+
 ## 1.11.1
 
 - License check uses the signing key of the KultiLic product `chargegate` (key ID `4daf1b7e`).

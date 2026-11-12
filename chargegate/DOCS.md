@@ -49,6 +49,23 @@ energy goes. If your stations are spread over several sites, tick **⚡ Energy d
 *Stations › Sites* only for the site of this Home Assistant – stations elsewhere are then not offered
 as energy meters. Details: [docs/home-assistant.md](https://github.com/kultikom/chargegate/blob/main/docs/home-assistant.md)
 
+## Vehicles and battery level
+
+AC charging doesn't tell the station the car's battery level. ChargeGate can take it from
+**TeslaMate**:
+
+1. TeslaMate publishes to the **Mosquitto** app of this Home Assistant: create a user for TeslaMate
+   in Mosquitto (*logins*), then set `MQTT_HOST`, `MQTT_USERNAME` and `MQTT_PASSWORD` in TeslaMate.
+2. ChargeGate › **Vehicles** › *Data source* › **TeslaMate (MQTT)** (MQTT must be on in this app's
+   configuration – it uses the same broker as for Home Assistant).
+3. The cars appear when they wake up. Assign each car to its employee.
+
+During a session ChargeGate picks the employee's car (otherwise the car plugged in at the same
+time), records the battery level at the start and the end, shows it in *Sessions*, in Home Assistant
+(*Battery* sensor per charging point, car name in the state attributes) and sends it to KultiWB
+stations for their display. If two cars were plugged in at the same moment, set the car of a running
+session on the *Vehicles* page.
+
 ## Charging point dashboard
 
 The app installs the ChargeGate card and creates a dashboard **Charging points** with all stations:

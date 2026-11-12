@@ -61,3 +61,10 @@ To add a language, add its code to `LANGUAGES` and a dictionary to `CATALOGS`.
 1. Bump `version` in `chargegate/config.yaml` and `VERSION` in `chargegate/app/config.py`
 2. Add an entry to `chargegate/CHANGELOG.md`
 3. Push – Home Assistant shows the update and rebuilds the app on the device
+
+## Tests
+
+```bash
+pip install -r chargegate/app/requirements.txt pytest
+python -m pytest tests -q
+```

@@ -150,8 +150,11 @@ class Transaction(Base):
     received_at: Mapped[datetime | None] = mapped_column(DateTime, default=utcnow)  # when the server learned of it
     late: Mapped[bool | None] = mapped_column(Boolean, default=False)  # reported afterwards (offline queue)
     stop_reason: Mapped[str | None] = mapped_column(String(50))
+    vehicle_id: Mapped[int | None] = mapped_column(ForeignKey("vehicles.id", ondelete="SET NULL"))
+    vehicle_match: Mapped[str | None] = mapped_column(String(20))  # employee | plug_time | manual
     station: Mapped[Station] = relationship()
     employee: Mapped[Employee | None] = relationship()
+    vehicle: Mapped[Vehicle | None] = relationship()
 
     @property
     def energy_kwh(self) -> float | None:
@@ -159,6 +162,31 @@ class Transaction(Base):
         if self.meter_start_wh is None or end is None:
             return None
         return round(max(end - self.meter_start_wh, 0) / 1000, 3)
+
+
+class Vehicle(Base):
+    """A car from a vehicle data source (e.g. TeslaMate), optionally assigned to an employee."""
+    __tablename__ = "vehicles"
+    __table_args__ = (UniqueConstraint("source", "external_id"),)
+    id: Mapped[int] = mapped_column(primary_key=True)
+    source: Mapped[str] = mapped_column(String(20))           # teslamate
+    external_id: Mapped[str] = mapped_column(String(64))      # the source's car ID
+    name: Mapped[str | None] = mapped_column(String(100))
+    employee_id: Mapped[int | None] = mapped_column(ForeignKey("employees.id", ondelete="SET NULL"))
+    soc: Mapped[float | None] = mapped_column(Float)          # battery %
+    limit_soc: Mapped[float | None] = mapped_column(Float)    # charge limit %
+    range_km: Mapped[float | None] = mapped_column(Float)
+    plugged: Mapped[bool | None] = mapped_column(Boolean)
+    plugged_since: Mapped[datetime | None] = mapped_column(DateTime)  # None = unknown
+    charging_state: Mapped[str | None] = mapped_column(String(30))
+    state: Mapped[str | None] = mapped_column(String(30))
+    updated: Mapped[datetime | None] = mapped_column(DateTime)
+    created: Mapped[datetime] = mapped_column(DateTime, default=utcnow)
+    employee: Mapped[Employee | None] = relationship()
+
+    @property
+    def label(self) -> str:
+        return self.name or f"#{self.external_id}"
 
 
 def running_clause():

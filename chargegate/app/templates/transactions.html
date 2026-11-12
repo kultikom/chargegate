@@ -53,7 +53,7 @@
       <td><input type="checkbox" name="ids" value="{{ t.id }}" onchange="checkedCount()"></td>
       <td>{{ t.started_at|local }}{% if t.late %}<br><span class="pill warn" title="{{ _('Sent by the station afterwards on {date}', date=t.received_at|local) }}">{{ _("sent afterwards") }}</span>{% endif %}</td>
       <td>{% if t.stopped_at %}{{ t.stopped_at|local('time' if t.stopped_at|local('date') == t.started_at|local('date') else 'full') }}{% elif t.late %}–{% else %}<span class="pill Charging">{{ _("running") }}</span>{% endif %}</td>
-      <td>{{ t.employee.name if t.employee else '' }}<br><span class="mono muted">{{ t.tag_uid or '' }}</span></td>
+      <td>{{ t.employee.name if t.employee else '' }}<br><span class="mono muted">{{ t.tag_uid or '' }}</span>{% if t.vehicle %}<br><span class="muted">{{ t.vehicle.label }}</span>{% endif %}</td>
       <td>{{ t.station.name or t.station_id }}<br><span class="muted">{{ [t.station.site.name if t.station.site else None, t.station.connector_label(t.connector_id) if t.connector_id else None]|select|join(' · ') }}</span></td>
       <td class="num">{{ t.energy_kwh|kwh }}{% if t.soc_last is not none %}<br><span class="muted" title="{{ _('Battery') }}">{% if t.soc_start is not none and t.soc_start < t.soc_last %}{{ t.soc_start|round|int }} → {% endif %}{{ t.soc_last|round|int }} %</span>{% endif %}</td>
       <td class="muted">{{ _(t.stop_reason) if t.stop_reason else '' }}</td>

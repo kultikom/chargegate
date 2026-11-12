@@ -10,8 +10,11 @@ from ocpp.v16 import ChargePoint as CP16
 from ocpp.v16 import call_result
 from ocpp.v16.enums import Action, DataTransferStatus, RegistrationStatus
 
+import json
+
 import config
 import core
+import vehicles
 from db import utcnow
 
 log = logging.getLogger("chargegate")
@@ -106,6 +109,13 @@ class ChargePoint16(CP16):
             if message_id == "EmployeeName" and data:
                 name = await core.employee_name(str(data))
                 return call_result.DataTransfer(status=DataTransferStatus.accepted, data=name or "")
+            # ... and for the car charging in a session (battery level, from the Vehicles page):
+            # messageId "VehicleInfo", data = transactionId (or empty for the running session).
+            # ChargeGate also sends "VehicleInfo" to the station by itself whenever the values change.
+            if message_id == "VehicleInfo":
+                found = await vehicles.info_for(self.id, str(data) if data else None)
+                return call_result.DataTransfer(status=DataTransferStatus.accepted,
+                                                data=json.dumps(found) if found else "")
             return call_result.DataTransfer(status=DataTransferStatus.unknown_message_id)
         return call_result.DataTransfer(status=DataTransferStatus.unknown_vendor_id)
 
