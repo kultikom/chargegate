@@ -34,7 +34,7 @@ TRANSITION_DAYS = 30
 GRACE_DAYS = 14      # kultilic_verify default
 # Public key(s) of the product "chargegate" in KultiLic ({key id: base64url raw Ed25519 key}).
 # Keep every key that was ever used, so older licenses keep verifying after a key rotation.
-PUBLIC_KEYS = {"71aa244b": "HpiGL-Zmugc9TkxcftwgJypdCGi_g6_1uuQvVKoXyok"}
+PUBLIC_KEYS = {"4daf1b7e": "WjrICVFKc73W21goB200qzKP8e1VMSodxLnA50qe1CQ"}
 
 
 @dataclass
