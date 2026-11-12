@@ -306,6 +306,8 @@ DE = {
     "Saved": "Gespeichert", "Saved – but no MQTT broker is configured, see below":
         "Gespeichert – aber es ist kein MQTT-Broker eingerichtet, siehe unten",
     "{name} removed": "{name} entfernt",
+    "Show the cars in Home Assistant as devices (battery, charge limit, range, plugged in, charging, full at, employee, charging at)":
+        "Fahrzeuge in Home Assistant als Geräte anzeigen (Akkustand, Ladelimit, Reichweite, eingesteckt, lädt, voll um, Mitarbeiter, lädt an)",
 }
 
 CATALOGS = {"de": DE}

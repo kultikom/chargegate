@@ -620,8 +620,8 @@ async def vehicles_page(request: Request, user=Depends(admin)):
 
 @web_app.post("/vehicles/settings")
 async def vehicles_settings(request: Request, user=Depends(admin), source: str = Form("off"),
-                            topic: str = Form("")):
-    st = await vehicles.configure(source, topic)
+                            topic: str = Form(""), ha: str = Form("")):
+    st = await vehicles.configure(source, topic, bool(ha))
     if st.source != "off" and not vehicles.mqtt_configured():
         flash(request, _("Saved – but no MQTT broker is configured, see below"), "warn")
     else:
@@ -636,6 +636,7 @@ async def vehicle_assign(request: Request, vid: int, user=Depends(admin), employ
             v.employee_id = int(employee_id) if employee_id.isdigit() else None
             await s.commit()
             flash(request, _("{name} saved", name=v.label))
+            core.notify_vehicle(vid)
     return back("/vehicles")
 
 
@@ -648,6 +649,7 @@ async def vehicle_delete(request: Request, vid: int, user=Depends(admin)):
             await s.commit()
             flash(request, _("{name} removed", name=v.label))
     core.notify_all()
+    core.notify_vehicle(None)
     return back("/vehicles")
 
 

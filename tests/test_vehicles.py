@@ -133,3 +133,36 @@ def test_full_at_only_while_charging():
     assert vehicles.full_at(v, now) is None
     v.charging_state, v.time_to_full_h = "Charging", 0
     assert vehicles.full_at(v, now) is None
+
+
+def test_cars_in_home_assistant_only_when_enabled():
+    import json as _json
+    import ha_mqtt
+    import licensing
+    pubs = []
+
+    class Broker:
+        async def publish(self, topic, payload, **kw):
+            pubs.append((topic, payload))
+
+    async def run():
+        await init_db()
+        await vehicles.handle("teslamate", "7", "display_name", "HA-Wagen")
+        await vehicles.handle("teslamate", "7", "battery_level", "50")
+        bridge = ha_mqtt.Bridge()
+        bridge._client = Broker()
+        await licensing.set_setting("vehicles_ha", "0")
+        await bridge._sync_vehicles()
+        assert all(p == "" for _t, p in pubs)                  # off: only clean-up
+        pubs.clear()
+        await licensing.set_setting("vehicle_source", "teslamate")
+        await licensing.set_setting("vehicles_ha", "1")
+        await bridge._sync_vehicles()
+        states = [_json.loads(p) for t, p in pubs if t.startswith("chargegate/vehicle/")]
+        assert any(s["soc"] == 50 for s in states)
+        assert any("/soc/config" in t for t, _p in pubs)
+        pubs.clear()
+        await licensing.set_setting("vehicles_ha", "0")
+        await bridge._sync_vehicles()
+        assert pubs and all(p == "" for _t, p in pubs)         # switched off: entities removed
+    asyncio.run(run())

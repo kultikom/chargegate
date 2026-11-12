@@ -21,7 +21,7 @@ from sqlalchemy.orm import selectinload
 import config
 import core
 import vehicles
-from db import Session, Station
+from db import Session, Station, Vehicle
 
 log = logging.getLogger("chargegate.mqtt")
 
@@ -33,10 +33,16 @@ HUB_ID = "chargegate_hub"
 _NAMES = {
     "en": {"online": "Online", "status": "Status", "charging": "Charging", "power": "Power",
            "energy": "Energy", "session_energy": "Session energy", "employee": "Employee",
-           "connector": "Connector {c}", "soc": "Battery", "state": "State", "running": "Running sessions", "stations_online": "Stations online"},
+           "connector": "Connector {c}", "soc": "Battery", "state": "State", "running": "Running sessions", "stations_online": "Stations online",
+           "v_soc": "Battery", "v_limit": "Charge limit", "v_range": "Range", "v_plugged": "Plugged in",
+           "v_charging": "Charging", "v_time_to_full": "Time to full", "v_full_at": "Full at",
+           "v_state": "Vehicle state", "v_charging_at": "Charging at", "v_updated": "Last update"},
     "de": {"online": "Online", "status": "Status", "charging": "Lädt", "power": "Leistung",
            "energy": "Energie", "session_energy": "Energie Ladevorgang", "employee": "Mitarbeiter",
-           "connector": "Anschluss {c}", "soc": "Akkustand", "state": "Zustand", "running": "Laufende Ladevorgänge", "stations_online": "Stationen online"},
+           "connector": "Anschluss {c}", "soc": "Akkustand", "state": "Zustand", "running": "Laufende Ladevorgänge", "stations_online": "Stationen online",
+           "v_soc": "Akkustand", "v_limit": "Ladelimit", "v_range": "Reichweite", "v_plugged": "Eingesteckt",
+           "v_charging": "Lädt", "v_time_to_full": "Restladezeit", "v_full_at": "Voll um",
+           "v_state": "Fahrzeugstatus", "v_charging_at": "Lädt an", "v_updated": "Letzte Aktualisierung"},
 }
 NAMES = _NAMES["de" if config.LANGUAGE == "de" else "en"]
 _PHASES = {
@@ -77,11 +83,17 @@ class Bridge:
         self._sent: dict[str, str] = {}               # topic -> last payload (discovery only)
         self._known: dict[str, set[int]] = {}         # station -> connectors with entities
         self._has_sessions = False
+        self._known_vehicles: set[int] = set()        # cars with entities
+        self._vstate: dict[str, str] = {}             # vehicle state topic -> last payload
+        self._vehicles_checked = False                # after (re)connect: clean up cars once
 
     # called by core.notify() – must not block
     def listener(self, station_id: str | None) -> None:
         self._pending.add(station_id)
         self._event.set()
+
+    def vehicle_listener(self, vehicle_id: int | None) -> None:
+        self._event.set()            # cars are few – every run syncs all of them (deduplicated)
 
     async def run(self) -> None:
         while True:
@@ -91,7 +103,8 @@ class Bridge:
                         username=config.MQTT_USERNAME or None, password=config.MQTT_PASSWORD or None,
                         identifier="chargegate",
                         will=aiomqtt.Will(AVAILABILITY, "offline", qos=1, retain=True)) as client:
-                    self._client, self._sent = client, {}
+                    self._client, self._sent, self._vstate = client, {}, {}
+                    self._vehicles_checked = False
                     log.info("Connected to MQTT broker %s:%s", config.MQTT_HOST, config.MQTT_PORT)
                     await self._pub(AVAILABILITY, "online")
                     self._pending.add(None)
@@ -140,6 +153,104 @@ class Bridge:
         for sid in ids:
             await self._sync_station(sid)
         await self._sync_hub()
+        await self._sync_vehicles()
+
+    # --- cars (optional: Vehicles page › "Cars in Home Assistant") --------------------------
+
+    async def _sync_vehicles(self) -> None:
+        st = await vehicles.settings()
+        async with Session() as s:
+            cars = (await s.execute(select(Vehicle).options(selectinload(Vehicle.employee)))).scalars().all()
+        if not self._vehicles_checked:
+            # retained entities from an earlier run (option switched off meanwhile) are removed too
+            self._known_vehicles |= {v.id for v in cars}
+            self._vehicles_checked = True
+        if not (st.ha and st.source != "off"):
+            cars = []
+        running = {t.vehicle_id: t for t in (await core.active_sessions()).values() if t.vehicle_id}
+        seen = set()
+        for v in cars:
+            seen.add(v.id)
+            await self._sync_vehicle(v, running.get(v.id))
+        for vid in self._known_vehicles - seen:
+            await self._remove_vehicle(vid)
+        self._known_vehicles = seen
+
+    async def _sync_vehicle(self, v: Vehicle, tx) -> None:
+        node, uid = f"cg_vehicle_{v.id}", f"chargegate_vehicle_{v.id}"
+        state_topic = f"{BASE}/vehicle/{v.id}/state"
+        device = {"identifiers": [uid], "name": v.label, "via_device": HUB_ID}
+        if v.source == "teslamate":
+            device["manufacturer"] = "Tesla"
+        common = {"device": device, "origin": ORIGIN, "availability_topic": AVAILABILITY,
+                  "state_topic": state_topic}
+
+        def ent(component, obj, extra):
+            return self._config(component, node, obj, {**common, "name": NAMES[f"v_{obj}"],
+                                                       "unique_id": f"{uid}_{obj}", **extra})
+
+        def num(key):
+            return "{{ value_json.%s if value_json.%s is not none else 'None' }}" % (key, key)
+
+        await ent("sensor", "soc", {"value_template": num("soc"), "unit_of_measurement": "%",
+                                    "device_class": "battery", "state_class": "measurement"})
+        await ent("sensor", "limit", {"value_template": num("soc_limit"), "unit_of_measurement": "%",
+                                      "icon": "mdi:battery-arrow-up"})
+        await ent("sensor", "range", {"value_template": num("range_km"), "unit_of_measurement": "km",
+                                      "device_class": "distance", "state_class": "measurement"})
+        await ent("binary_sensor", "plugged", {"value_template": "{{ 'ON' if value_json.plugged else 'OFF' }}",
+                                               "device_class": "plug"})
+        await ent("binary_sensor", "charging", {"value_template": "{{ 'ON' if value_json.charging else 'OFF' }}",
+                                                "device_class": "battery_charging"})
+        await ent("sensor", "time_to_full", {"value_template": num("time_to_full_h"), "unit_of_measurement": "h",
+                                             "device_class": "duration", "suggested_display_precision": 2})
+        await ent("sensor", "full_at", {"value_template": "{{ value_json.full_at or 'None' }}",
+                                        "device_class": "timestamp"})
+        await ent("sensor", "state", {"value_template": "{{ value_json.state or 'None' }}", "icon": "mdi:car"})
+        await ent("sensor", "charging_at", {"value_template": "{{ value_json.charging_at }}", "icon": "mdi:ev-station"})
+        await ent("sensor", "updated", {"value_template": "{{ value_json.updated or 'None' }}",
+                                        "device_class": "timestamp", "entity_category": "diagnostic"})
+        show_employee = config.HA_EMPLOYEE_DISPLAY != "hidden"
+        await self._config("sensor", node, "employee", {
+            **common, "name": NAMES["employee"], "unique_id": f"{uid}_employee",
+            "value_template": "{{ value_json.employee }}", "icon": "mdi:account"} if show_employee else None)
+
+        soc = vehicles.fresh_soc(v)
+        at = "–"
+        if tx is not None and tx.station is not None:
+            at = tx.station.name or tx.station_id
+            if (tx.station.connector_names or "").strip():
+                at += " · " + tx.station.connector_label(tx.connector_id)
+        state = {
+            "soc": None if soc is None else round(soc),
+            "soc_limit": None if v.limit_soc is None else round(v.limit_soc),
+            "range_km": None if v.range_km is None or soc is None else round(v.range_km),
+            "plugged": bool(v.plugged),
+            "charging": (v.charging_state or "").lower() == "charging",
+            "time_to_full_h": v.time_to_full_h if vehicles.full_at(v) else None,
+            "full_at": iso(vehicles.full_at(v)),
+            "state": v.state,
+            "charging_at": at,
+            "updated": iso(v.updated),
+        }
+        if show_employee:
+            state["employee"] = employee_label(v.employee.name if v.employee else None)
+        text = json.dumps(state, ensure_ascii=False)
+        if self._vstate.get(state_topic) != text:
+            self._vstate[state_topic] = text
+            await self._pub(state_topic, text)
+
+    async def _remove_vehicle(self, vid: int) -> None:
+        node = f"cg_vehicle_{vid}"
+        for comp, obj in (("sensor", "soc"), ("sensor", "limit"), ("sensor", "range"), ("binary_sensor", "plugged"),
+                          ("binary_sensor", "charging"), ("sensor", "time_to_full"), ("sensor", "full_at"),
+                          ("sensor", "state"), ("sensor", "charging_at"), ("sensor", "updated"),
+                          ("sensor", "employee")):
+            await self._config(comp, node, obj, None)
+        topic = f"{BASE}/vehicle/{vid}/state"
+        self._vstate.pop(topic, None)
+        await self._pub(topic, "")
+        log.info("Removed car %s from Home Assistant", vid)
 
     async def _sync_hub(self) -> None:
         device = {"identifiers": [HUB_ID], "name": "ChargeGate", "manufacturer": "KULTIKOM",
@@ -244,7 +355,7 @@ class Bridge:
             # battery level only exists if the station has ever reported it (DC / ISO 15118)
             await self._config("sensor", node, f"{c}_soc", {
                 **common, "name": name("soc"), "unique_id": f"{uid}_soc",
-                "value_template": "{{ value_json.soc if value_json.soc is not none else 'unknown' }}",
+                "value_template": "{{ value_json.soc if value_json.soc is not none else 'None' }}",
                 "unit_of_measurement": "%", "device_class": "battery", "state_class": "measurement"}
                 if cs.soc_supported else None)
 
@@ -320,5 +431,6 @@ def start() -> bool:
         return False
     bridge = Bridge()
     core.add_listener(bridge.listener)
+    core.add_vehicle_listener(bridge.vehicle_listener)
     _task = asyncio.create_task(bridge.run())
     return True

@@ -54,6 +54,22 @@ def notify_all() -> None:
     notify(None)
 
 
+_vehicle_listeners: list = []
+
+
+def add_vehicle_listener(fn) -> None:
+    """fn(vehicle id or None) is called after a car's values changed (None = all cars)."""
+    _vehicle_listeners.append(fn)
+
+
+def notify_vehicle(vehicle_id: int | None) -> None:
+    for fn in _vehicle_listeners:
+        try:
+            fn(vehicle_id)
+        except Exception:  # noqa: BLE001
+            log.exception("vehicle listener failed")
+
+
 _start_hooks: list = []
 
 
