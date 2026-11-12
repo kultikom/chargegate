@@ -30,7 +30,7 @@ Per connector (prefixed with "Connector N" on stations with several connectors, 
 | Energy | sensor | kWh | the station's energy register – `total_increasing` |
 | Session energy | sensor | kWh | energy of the running session |
 | Employee | sensor | | who is charging – see *Privacy* |
-| Battery | sensor | % | car's state of charge – **only created once the station has reported it** (see below) |
+| Battery | sensor | % | car's state of charge – **only created once it is known**: from the station or from the car (*Vehicles*, see below) |
 
 On the **ChargeGate** hub device: *Running sessions* and *Stations online*.
 
@@ -47,6 +47,8 @@ The card `custom:chargegate-card` shows every charging point with
 - **session duration**, counting live
 - **employee** charging (respecting the privacy option below)
 - **battery level** of the car, if the station reports it (`show_soc: false` hides it)
+- **the car** charging (ChargeGate *Vehicles*): name, battery with charge-limit marker, start → now,
+  charge limit, range and when it will be full (`show_vehicle: false` hides it)
 
 **Home Assistant app:** with *Install the charging point dashboard* enabled (default), ChargeGate copies
 the card to `/config/www/chargegate/`, registers it as a dashboard resource and creates the dashboard
@@ -73,6 +75,7 @@ stations: [DUO-01, EVE-01]    # optional: only these station IDs, in this order
 columns: 2                    # optional: fixed number of columns (default: responsive)
 show_employee: true           # optional
 show_soc: true                # optional: battery level, if reported
+show_vehicle: true            # optional: car, charge limit, range, full at
 ```
 
 For a full-screen view (e.g. a wall tablet) put it into a view of type **Panel**.
@@ -98,6 +101,11 @@ Plain AC charging (Type 2 wallboxes, IEC 61851) has no way to transmit the car's
 the station simply doesn't know it. DC chargers and stations using ISO 15118 (with a car that
 supports it) can send it as OCPP measurand `SoC`. ChargeGate requests it from every OCPP 1.6 station
 and shows it as soon as it arrives; nothing changes for stations that don't support it.
+
+For AC stations, ChargeGate can take the battery level **from the car** instead: cars from TeslaMate
+are assigned to employees on the *Vehicles* page. While such a car charges, the state attributes of
+the charging point carry `vehicle` (name), `soc`, `soc_start`, `soc_limit`, `range_km` and `full_at`
+(ISO time when the charge limit is reached, from TeslaMate's `time_to_full_charge`).
 
 ## Energy dashboard
 
@@ -131,7 +139,7 @@ Choose with the option **Employee shown in Home Assistant** (`HA_EMPLOYEE_DISPLA
 |---|---|
 | `name` | full name |
 | `initials` | e.g. `M.T.` |
-| `hidden` | no employee entity at all (an existing one is removed) |
+| `hidden` | no employee entity at all (an existing one is removed); the car's name is hidden too |
 
 The ChargeGate web UI always shows the full name to its admins.
 

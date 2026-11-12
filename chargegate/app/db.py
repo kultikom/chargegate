@@ -176,6 +176,7 @@ class Vehicle(Base):
     soc: Mapped[float | None] = mapped_column(Float)          # battery %
     limit_soc: Mapped[float | None] = mapped_column(Float)    # charge limit %
     range_km: Mapped[float | None] = mapped_column(Float)
+    time_to_full_h: Mapped[float | None] = mapped_column(Float)   # hours until the charge limit
     plugged: Mapped[bool | None] = mapped_column(Boolean)
     plugged_since: Mapped[datetime | None] = mapped_column(DateTime)  # None = unknown
     charging_state: Mapped[str | None] = mapped_column(String(30))

@@ -122,3 +122,14 @@ def test_session_gets_car_and_battery_level():
         assert t.vehicle_id is None and t2.vehicle_id == vid and t2.vehicle_match == "manual"
         assert t2.soc_start == 57
     asyncio.run(run())
+
+
+def test_full_at_only_while_charging():
+    now = utcnow()
+    v = car(1, updated=now)
+    v.soc, v.time_to_full_h, v.charging_state = 60, 1.5, "Charging"
+    assert vehicles.full_at(v, now) == now + timedelta(hours=1.5)
+    v.charging_state = "Complete"
+    assert vehicles.full_at(v, now) is None
+    v.charging_state, v.time_to_full_h = "Charging", 0
+    assert vehicles.full_at(v, now) is None

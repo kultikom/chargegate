@@ -17,9 +17,10 @@
  *   stations: [DUO-01, EVE-01]    # optional: only these station IDs, in this order
  *   columns: 2                    # optional: fixed number of columns (default: responsive)
  *   show_employee: true           # optional
- *   show_soc: true                # optional: battery level, if the station reports it
+ *   show_soc: true                # optional: battery level (from the station or the car)
+ *   show_vehicle: true            # optional: car, charge limit, range, full at (ChargeGate Vehicles)
  */
-const CG_VERSION = "1.8.1";
+const CG_VERSION = "1.13.0";
 
 const CG_TEXT = {
   en: {
@@ -31,7 +32,8 @@ const CG_TEXT = {
     all_sites: "All", ed_title: "Title", ed_site: "Site", ed_all_tabs: "All sites (switch with tabs)",
     ed_columns: "Columns", ed_auto: "automatic", ed_employee: "Show employee", ed_soc: "Show battery level",
     ed_tabs: "Viewers may switch sites (tabs)", ed_default: "Tab selected at first",
-    ed_all: "All sites",
+    ed_all: "All sites", ed_vehicle: "Show car (limit, range, full at)",
+    limit: "limit {n} %", full_at: "full ~{t}", soc_title: "Battery {soc} % · charge limit {limit} %",
   },
   de: {
     title: "Ladepunkte", offline: "Offline", free: "Frei", charging: "Lädt",
@@ -42,13 +44,14 @@ const CG_TEXT = {
     all_sites: "Alle", ed_title: "Titel", ed_site: "Standort", ed_all_tabs: "Alle Standorte (mit Reitern umschalten)",
     ed_columns: "Spalten", ed_auto: "automatisch", ed_employee: "Mitarbeiter anzeigen", ed_soc: "Akkustand anzeigen",
     ed_tabs: "Betrachter dürfen den Standort umschalten (Reiter)", ed_default: "Zuerst gewählter Reiter",
-    ed_all: "Alle Standorte",
+    ed_all: "Alle Standorte", ed_vehicle: "Fahrzeug anzeigen (Ziel, Reichweite, voll um)",
+    limit: "Ziel {n} %", full_at: "voll ~{t}", soc_title: "Akkustand {soc} % · Ladelimit {limit} %",
   },
 };
 
 class ChargeGateCard extends HTMLElement {
   setConfig(config) {
-    this._config = { show_employee: true, show_soc: true, show_site_tabs: false, ...(config || {}) };
+    this._config = { show_employee: true, show_soc: true, show_vehicle: true, show_site_tabs: false, ...(config || {}) };
     this._sig = null;
     this._selected = undefined;               // site chosen with the tabs (null = all)
     if (!this.shadowRoot) this.attachShadow({ mode: "open" });
@@ -277,6 +280,7 @@ class ChargeGateCard extends HTMLElement {
     const pct = Math.max(0, Math.min(100, (power / max) * 100));
     const active = a.charging && state !== "offline";
     const employee = this._config.show_employee && a.employee && a.employee !== "–" && active ? a.employee : "";
+    const car = this._car(a, state, active);
     return `
       <div class="point s-${state}" data-entity="${this._esc(p.entity_id)}">
         <div class="row1">
@@ -285,14 +289,45 @@ class ChargeGateCard extends HTMLElement {
             : `<span class="num">${a.connector}</span>`) : ""}
           <span class="pill" title="OCPP: ${this._esc(a.status)}">${state === "done" ? "✓ " : ""}${this._esc(this._t(state))}</span>
           <span class="who" title="${this._esc(employee)}">${this._esc(employee)}</span>
-          ${this._soc(a, active)}
+          ${car ? "" : this._soc(a, active)}
           ${this._dur(a, state, active)}
         </div>
         <div class="row2">
           <div class="bar"><div class="fill" style="width:${pct.toFixed(1)}%"></div></div>
           <span class="kw">${this._kw(power)} <span class="max">/ ${Math.round(max / 1000)} ${this._t("kw")}</span></span>
         </div>
+        ${car}
       </div>`;
+  }
+
+  // The car charging here (ChargeGate 1.12+ Vehicles): battery with charge limit, range, full at
+  _car(a, state, active) {
+    const known = a.vehicle || (a.soc_limit !== null && a.soc_limit !== undefined);
+    if (!this._config.show_vehicle || !active || !known) return "";
+    const has = (v) => v !== null && v !== undefined;
+    const soc = has(a.soc) ? Math.round(a.soc) : null;
+    const lang = (this._hass.language || "en").slice(0, 2);
+    const parts = [];
+    if (soc !== null) {
+      const from = this._config.show_soc && has(a.soc_start) && a.soc_start < soc ? `${Math.round(a.soc_start)} → ` : "";
+      const limit = has(a.soc_limit) ? `<b style="left:${Math.min(100, a.soc_limit)}%"></b>` : "";
+      parts.push(`<span class="batt" title="${this._esc(this._t("soc_title", { soc, limit: has(a.soc_limit) ? a.soc_limit : "–" }))}">
+        <i style="width:${Math.max(3, Math.min(100, soc))}%"></i>${limit}</span>`);
+      parts.push(`<span class="socv">${from}${soc} %</span>`);
+      const more = [];
+      if (has(a.soc_limit)) more.push(`<span>${this._esc(this._t("limit", { n: a.soc_limit }))}</span>`);
+      if (has(a.range_km)) more.push(`<span>${a.range_km.toLocaleString(lang)} km</span>`);
+      if (a.full_at && state === "charging" && Date.parse(a.full_at) > Date.now()) {
+        const t = new Date(a.full_at).toLocaleTimeString(lang, { hour: "2-digit", minute: "2-digit" });
+        more.push(`<span class="full">${this._esc(this._t("full_at", { t }))}</span>`);
+      }
+      if (more.length) parts.push(`<span class="more">${more.join(" · ")}</span>`);
+    }
+    const name = a.vehicle ? `<span class="car-name" title="${this._esc(a.vehicle)}">
+      <svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true"><path fill="currentColor" d="M5 11l1.5-4.5h11L19 11m-1.5 5a1.5 1.5 0 0 1-1.5-1.5a1.5 1.5 0 0 1 1.5-1.5a1.5 1.5 0 0 1 1.5 1.5a1.5 1.5 0 0 1-1.5 1.5m-11 0A1.5 1.5 0 0 1 5 14.5A1.5 1.5 0 0 1 6.5 13A1.5 1.5 0 0 1 8 14.5A1.5 1.5 0 0 1 6.5 16M18.92 6c-.2-.58-.76-1-1.42-1h-11c-.66 0-1.22.42-1.42 1L3 12v8a1 1 0 0 0 1 1h1a1 1 0 0 0 1-1v-1h12v1a1 1 0 0 0 1 1h1a1 1 0 0 0 1-1v-8z"/></svg>
+      <span>${this._esc(a.vehicle)}</span></span>` : "";
+    if (!name && !parts.length) return "";
+    return `<div class="row3">${name}${parts.join("")}</div>`;
   }
 
   _dur(a, state, active) {
@@ -361,11 +396,28 @@ class ChargeGateCard extends HTMLElement {
       .soc { display: inline-flex; align-items: center; gap: 4px; font-size: .9em; white-space: nowrap; flex: none;
              color: var(--secondary-text-color); font-variant-numeric: tabular-nums; }
       .dur { margin-left: auto; color: var(--secondary-text-color); font-variant-numeric: tabular-nums; white-space: nowrap; font-size: .9em; }
+      .row3 { display: flex; align-items: center; gap: 4px 6px; flex-wrap: wrap; font-size: .9em;
+              color: var(--secondary-text-color); font-variant-numeric: tabular-nums; }
+      .car-name { display: inline-flex; align-items: center; gap: 4px; color: var(--primary-text-color);
+                  min-width: 0; max-width: 12em; margin-right: 4px; }
+      .car-name span { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+      .car-name svg { flex: none; color: var(--secondary-text-color); }
+      .batt { position: relative; width: 34px; height: 13px; border: 1.5px solid currentColor; border-radius: 3px;
+              padding: 1.5px; box-sizing: border-box; flex: none; margin-right: 3px; }
+      .batt::after { content: ""; position: absolute; right: -4px; top: 3px; width: 2px; height: 4px;
+                     background: currentColor; border-radius: 0 1px 1px 0; }
+      .batt i { display: block; height: 100%; border-radius: 1px; background: var(--cg-c); }
+      .batt b { position: absolute; top: -3px; bottom: -3px; width: 2px; margin-left: -1px;
+                background: var(--primary-text-color); opacity: .75; }
+      .socv { color: var(--primary-text-color); font-weight: 600; white-space: nowrap; }
+      .more { white-space: nowrap; margin-left: 2px; }
+      .full { color: var(--cg-c); font-weight: 600; }
       .row2 { display: flex; align-items: center; gap: 10px; }
       .bar { flex: 1; height: 10px; border-radius: 5px; background: var(--divider-color, rgba(127,127,127,.2)); overflow: hidden; }
       .fill { height: 100%; border-radius: 5px; background: var(--cg-c); transition: width .6s ease; }
       .kw { font-variant-numeric: tabular-nums; white-space: nowrap; font-size: .9em; color: var(--primary-text-color); min-width: 88px; text-align: right; }
       .max { color: var(--secondary-text-color); }
+      .s-done .batt i { background: var(--cg-done); }
       .s-free { --cg-c: var(--cg-free); }
       .s-done { --cg-c: var(--cg-done); }
       .s-done .pill { font-weight: 700; }
@@ -386,7 +438,7 @@ if (!customElements.get("chargegate-card")) {
   window.customCards.push({
     type: "chargegate-card",
     name: "ChargeGate",
-    description: "All ChargeGate charging points: state, power, session duration and employee.",
+    description: "All ChargeGate charging points: state, power, session duration, employee and car.",
     preview: true,
     documentationURL: "https://github.com/kultikom/chargegate/blob/main/docs/home-assistant.md",
   });
@@ -429,7 +481,7 @@ class ChargeGateCardEditor extends HTMLElement {
     if (!this._config) return;
     const c = this._config, sites = this._sites();
     const opt = (v, label, sel) => `<option value="${this._esc(v)}" ${sel ? "selected" : ""}>${this._esc(label)}</option>`;
-    const check = (key, def) => `<label class="chk"><input type="checkbox" data-key="${key}" ${(c[key] ?? def) ? "checked" : ""}> ${this._esc(this._t("ed_" + { show_employee: "employee", show_soc: "soc", show_site_tabs: "tabs" }[key]))}</label>`;
+    const check = (key, def) => `<label class="chk"><input type="checkbox" data-key="${key}" ${(c[key] ?? def) ? "checked" : ""}> ${this._esc(this._t("ed_" + { show_employee: "employee", show_soc: "soc", show_vehicle: "vehicle", show_site_tabs: "tabs" }[key]))}</label>`;
     if (!this.shadowRoot) this.attachShadow({ mode: "open" });
     this.shadowRoot.innerHTML = `
       <style>
@@ -449,6 +501,7 @@ class ChargeGateCardEditor extends HTMLElement {
         <label>${this._esc(this._t("ed_columns"))}<input type="number" min="1" max="6" data-key="columns" value="${this._esc(c.columns || "")}" placeholder="${this._esc(this._t("ed_auto"))}"></label>
         ${check("show_employee", true)}
         ${check("show_soc", true)}
+        ${check("show_vehicle", true)}
       </div>`;
     this.shadowRoot.querySelectorAll("[data-key]").forEach((el) => {
       el.addEventListener("change", () => this._changed(el));
