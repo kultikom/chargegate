@@ -21,7 +21,7 @@
  *   show_vehicle: true            # optional: car, charge limit, range, full at (ChargeGate Vehicles)
  *   view: plan                    # optional: site plan instead of the list (drawn in ChargeGate › Site plan)
  */
-const CG_VERSION = "1.15.0";
+const CG_VERSION = "1.15.1";
 
 const CG_TEXT = {
   en: {
@@ -511,7 +511,8 @@ const ChargeGatePlan = (() => {
     .cgp .lbl { font-weight: 700; }
     .cgp-spot { --cgp-c: var(--cgp-muted, var(--secondary-text-color, #8a948e)); }
     .cgp-spot .b { fill: var(--cgp-c); fill-opacity: .14; stroke: var(--cgp-c); stroke-width: 2; }
-    .cgp-spot.cgp-none .b { fill: none; stroke-dasharray: 6 4; stroke-width: 1.5; stroke-opacity: .7; }
+    .cgp-spot.cgp-none .b { fill-opacity: 0; stroke-dasharray: 6 4; stroke-width: 1.5; stroke-opacity: .7; }
+    .cgp .b { pointer-events: all; }     /* the whole area can be clicked, even where it is not filled */
     .cgp-spot .chg { fill: var(--cgp-c); }
     .cgp-spot .chg path { fill: var(--cgp-on, #fff); }
     .cgp-spot .soc-bg { fill: var(--cgp-muted, #8a948e); fill-opacity: .25; }
