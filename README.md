@@ -23,6 +23,8 @@ Runs as a **Home Assistant app** (e.g. on a Home Assistant Green) or **standalon
   Home Assistant and on KultiWB displays; optionally every car becomes a Home Assistant device
 - **Home Assistant entities** – who is charging, power and energy per charging point,
   ready for the Energy dashboard (MQTT discovery, see [docs](docs/home-assistant.md))
+- **Site plan** – draw parking spaces and charging points per site; live state, employee, car and
+  battery level, in ChargeGate and on the Home Assistant card
 - **Charging point dashboard** for Home Assistant – all stations at a glance with state, live power,
   session duration and employee, installed automatically
 

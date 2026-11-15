@@ -94,9 +94,19 @@ columns: 2                    # optional: fixed number of columns (default: resp
 show_employee: true           # optional
 show_soc: true                # optional: battery level, if reported
 show_vehicle: true            # optional: car, charge limit, range, full at
+view: plan                    # optional: site plan instead of the list (ChargeGate › Site plan)
 ```
 
 For a full-screen view (e.g. a wall tablet) put it into a view of type **Panel**.
+
+### Site plan view
+
+Draw the parking spaces and charging points of a site in ChargeGate under **Site plan** (parking
+spaces, rows, angled spaces, buildings, driveways, green areas; each space can be linked to a
+charging point). Choose **View: Site plan** in the card editor (`view: plan`) to show it live on the
+card: colour per state, employee, car, power and battery level; tap a space for its details. With
+`site:` or the site tabs the card shows that site's plan, otherwise all plans. ChargeGate publishes
+each plan as a diagnostic sensor *Site plan …* on the ChargeGate device.
 
 ## When is a car "done"?
 

@@ -19,8 +19,9 @@
  *   show_employee: true           # optional
  *   show_soc: true                # optional: battery level (from the station or the car)
  *   show_vehicle: true            # optional: car, charge limit, range, full at (ChargeGate Vehicles)
+ *   view: plan                    # optional: site plan instead of the list (drawn in ChargeGate › Site plan)
  */
-const CG_VERSION = "1.13.0";
+const CG_VERSION = "1.15.0";
 
 const CG_TEXT = {
   en: {
@@ -34,6 +35,8 @@ const CG_TEXT = {
     ed_tabs: "Viewers may switch sites (tabs)", ed_default: "Tab selected at first",
     ed_all: "All sites", ed_vehicle: "Show car (limit, range, full at)",
     limit: "limit {n} %", full_at: "full ~{t}", soc_title: "Battery {soc} % · charge limit {limit} %",
+    unknown_point: "unknown", plan_missing: "No site plan yet – draw one in ChargeGate › Site plan.",
+    ed_view: "View", ed_view_list: "List", ed_view_plan: "Site plan", no_site: "No site",
   },
   de: {
     title: "Ladepunkte", offline: "Offline", free: "Frei", charging: "Lädt",
@@ -46,6 +49,8 @@ const CG_TEXT = {
     ed_tabs: "Betrachter dürfen den Standort umschalten (Reiter)", ed_default: "Zuerst gewählter Reiter",
     ed_all: "Alle Standorte", ed_vehicle: "Fahrzeug anzeigen (Ziel, Reichweite, voll um)",
     limit: "Ziel {n} %", full_at: "voll ~{t}", soc_title: "Akkustand {soc} % · Ladelimit {limit} %",
+    unknown_point: "unbekannt", plan_missing: "Noch kein Lageplan – in ChargeGate unter Lageplan zeichnen.",
+    ed_view: "Ansicht", ed_view_list: "Liste", ed_view_plan: "Lageplan", no_site: "Ohne Standort",
   },
 };
 
@@ -112,7 +117,9 @@ class ChargeGateCard extends HTMLElement {
   set hass(hass) {
     this._hass = hass;
     const points = this._allPoints();
-    const sig = JSON.stringify(points.map((p) => [p.entity_id, p.state, p.attributes])) + hass.language;
+    const plans = this._config.view === "plan" ? this._planStates() : [];
+    const sig = JSON.stringify(points.map((p) => [p.entity_id, p.state, p.attributes]))
+      + JSON.stringify(plans.map((p) => p.attributes)) + hass.language;
     if (sig === this._sig) return;          // nothing relevant changed
     this._sig = sig;
     this._render(points);
@@ -229,8 +236,9 @@ class ChargeGateCard extends HTMLElement {
     const totalW = points.reduce((sum, p) => sum + (p.attributes.online ? (p.attributes.power || 0) : 0), 0);
     const cols = cfg.columns ? `repeat(${Number(cfg.columns)}, minmax(0, 1fr))` : "repeat(auto-fill, minmax(300px, 1fr))";
 
-    const body = stations.length ? stations.map((st) => this._station(st)).join("")
-      : `<div class="empty">${this._esc(this._t("noStations"))}</div>`;
+    const plan = cfg.view === "plan" ? this._plans(tabs ? current : undefined) : "";
+    const body = plan || (stations.length ? stations.map((st) => this._station(st)).join("")
+      : `<div class="empty">${this._esc(this._t("noStations"))}</div>`);
 
     this.shadowRoot.innerHTML = `
       <style>${ChargeGateCard.styles}</style>
@@ -240,11 +248,51 @@ class ChargeGateCard extends HTMLElement {
           <div class="summary">${this._esc(this._t("charging_now", { n: charging }))}${done ? " · " + this._esc(this._t("done_now", { n: done })) : ""} · ${this._kw(totalW)} ${this._t("kw")}</div>
         </div>
         ${tabs ? this._tabs(sites, current, allPoints) : ""}
-        <div class="grid" style="grid-template-columns:${cols}">${body}</div>
+        ${plan ? body : `<div class="grid" style="grid-template-columns:${cols}">${body}</div>`}
       </ha-card>`;
     this.shadowRoot.querySelectorAll(".tab").forEach((el) => {
       el.addEventListener("click", () => this._selectSite(el.dataset.site === "*" ? null : el.dataset.site));
     });
+    this.shadowRoot.querySelectorAll(".cgp [data-station]").forEach((el) => {
+      el.addEventListener("click", () => {
+        const p = this._pointFor(el.dataset.station, Number(el.dataset.connector));
+        if (p) this.dispatchEvent(new CustomEvent("hass-more-info", { detail: { entityId: p.entity_id }, bubbles: true, composed: true }));
+      });
+    });
+  }
+
+  // --- site plan (view: plan) -------------------------------------------------------------
+
+  _planStates() {
+    return Object.values(this._hass.states).filter((s) => s.attributes && s.attributes.source === "chargegate_plan" && s.attributes.layout);
+  }
+
+  _pointFor(station, connector) {
+    return Object.values(this._hass.states).find((s) => s.attributes && s.attributes.source === "chargegate"
+      && s.attributes.station === station && s.attributes.connector === connector && s.entity_id.startsWith("sensor."));
+  }
+
+  _plans(tabSite) {
+    const cfg = this._config;
+    let plans = this._planStates();
+    const wanted = cfg.site !== undefined && cfg.site !== "" ? cfg.site : tabSite;
+    if (wanted !== undefined && wanted !== null) plans = plans.filter((p) => (p.attributes.site || "") === wanted);
+    else if (cfg.sites) plans = plans.filter((p) => cfg.sites.includes(p.attributes.site));
+    if (!plans.length) return `<div class="empty">${this._esc(this._t("plan_missing"))}</div>`;
+    plans.sort((a, b) => (!a.attributes.site - !b.attributes.site) || (a.attributes.site || "").localeCompare(b.attributes.site || "", undefined, { numeric: true }));
+    const lang = (this._hass.language || "en").slice(0, 2);
+    const opts = { t: (k, v) => this._t(k, v), lang, showEmployee: cfg.show_employee, showVehicle: cfg.show_vehicle, showSoc: cfg.show_soc };
+    const get = (station, connector) => {
+      const p = this._pointFor(station, connector);
+      if (!p) return null;
+      const a = p.attributes, phase = this._state(p);
+      const busy = ChargeGatePlan.BUSY.includes(phase);
+      return { phase, station_name: a.station_name, connector_label: a.connector_label,
+        employee: busy && a.employee && a.employee !== "–" ? a.employee : null, vehicle: busy ? a.vehicle : null,
+        power: phase === "offline" ? 0 : (a.power || 0), soc: busy ? a.soc : null, soc_limit: busy ? a.soc_limit : null };
+    };
+    return plans.map((p) => `<div class="plan">${plans.length > 1 ? `<div class="plan-site">${this._esc(p.attributes.site || this._t("no_site"))}</div>` : ""}
+      <div class="plan-scroll">${ChargeGatePlan.render(p.attributes.layout, get, opts)}</div></div>`).join("");
   }
 
   _tabs(sites, current, allPoints) {
@@ -370,6 +418,10 @@ class ChargeGateCard extends HTMLElement {
                 color: var(--text-primary-color, #fff); }
       .tab .cnt { font-size: .8em; font-weight: 700; min-width: 18px; padding: 0 5px; border-radius: 999px;
                   background: color-mix(in srgb, currentColor 18%, transparent); }
+      .plan + .plan { margin-top: 16px; }
+      .plan-scroll { overflow-x: auto; }
+      .plan-scroll svg { min-width: 520px; }
+      .plan-site { font-weight: 600; color: var(--secondary-text-color); margin: 0 0 6px; }
       .head { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; margin-bottom: 12px; flex-wrap: wrap; }
       .title { font-size: 1.25em; font-weight: 500; color: var(--primary-text-color); }
       .summary { color: var(--secondary-text-color); font-size: 0.95em; font-variant-numeric: tabular-nums; }
@@ -432,6 +484,172 @@ class ChargeGateCard extends HTMLElement {
   }
 }
 
+// --- site plan renderer -----------------------------------------------------------------------
+// Shared by the card (view: plan) and ChargeGate's Site plan page. Pure: layout + point lookup -> SVG.
+//   ChargeGatePlan.render(layout, getPoint(station, connector) -> state | null, opts) -> "<svg …>"
+//   opts: { t(key, vars), lang, showEmployee, showVehicle, showSoc, edit, selected, pointName(item) }
+// Layout units: 20 = 1 m; items are centred at x/y and rotated by rot degrees (see plan.py).
+const ChargeGatePlan = (() => {
+  const BUSY = ["charging", "done", "connected", "paused"];
+  const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+  const fit = (text, width, fs) => {
+    const max = Math.max(1, Math.floor(width / (fs * 0.52)));
+    text = String(text ?? "");
+    return text.length > max ? text.slice(0, Math.max(1, max - 1)) + "…" : text;
+  };
+  const upright = (rot, extra) => {      // keep text readable: never upside down
+    const total = (((rot + extra) % 360) + 360) % 360;
+    return total > 90 && total < 270 ? extra + 180 : extra;
+  };
+  const n = (v) => Math.round(v * 10) / 10;
+
+  const CSS = `
+    .cgp { width: 100%; height: auto; display: block; user-select: none; -webkit-user-select: none;
+           font-family: inherit; }
+    .cgp text { fill: var(--cgp-text, var(--primary-text-color, #1d2320)); dominant-baseline: middle; text-anchor: middle; }
+    .cgp .m { fill: var(--cgp-muted, var(--secondary-text-color, #6b7570)); }
+    .cgp .lbl { font-weight: 700; }
+    .cgp-spot { --cgp-c: var(--cgp-muted, var(--secondary-text-color, #8a948e)); }
+    .cgp-spot .b { fill: var(--cgp-c); fill-opacity: .14; stroke: var(--cgp-c); stroke-width: 2; }
+    .cgp-spot.cgp-none .b { fill: none; stroke-dasharray: 6 4; stroke-width: 1.5; stroke-opacity: .7; }
+    .cgp-spot .chg { fill: var(--cgp-c); }
+    .cgp-spot .chg path { fill: var(--cgp-on, #fff); }
+    .cgp-spot .soc-bg { fill: var(--cgp-muted, #8a948e); fill-opacity: .25; }
+    .cgp-spot .soc { fill: var(--cgp-c); }
+    .cgp-spot .lim { fill: var(--cgp-text, var(--primary-text-color, #1d2320)); opacity: .7; }
+    .cgp-free { --cgp-c: var(--cg-free, #43a047); }
+    .cgp-charging { --cgp-c: var(--cg-charging, #039be5); }
+    .cgp-done { --cgp-c: var(--cg-done, #00897b); }
+    .cgp-connected, .cgp-paused, .cgp-reserved { --cgp-c: var(--cg-connected, #ffa000); }
+    .cgp-fault, .cgp-unavailable { --cgp-c: var(--cg-fault, #db4437); }
+    .cgp-offline, .cgp-unknown { --cgp-c: var(--cg-offline, #9e9e9e); }
+    .cgp-charging .b { fill-opacity: .22; }
+    .cgp-charging .chg { animation: cgp-pulse 2s ease-in-out infinite; }
+    @keyframes cgp-pulse { 50% { opacity: .45; } }
+    .cgp-area .b { stroke: none; }
+    .cgp-k-building .b { fill: var(--cgp-muted, #6b7570); fill-opacity: .22; }
+    .cgp-k-green .b { fill: #66bb6a; fill-opacity: .25; }
+    .cgp-k-road .b { fill: var(--cgp-muted, #6b7570); fill-opacity: .09; }
+    .cgp-k-road .line { stroke: var(--cgp-muted, #6b7570); stroke-opacity: .35; stroke-width: 2; stroke-dasharray: 14 12; }
+    .cgp .click { cursor: pointer; }
+    .cgp.edit [data-id] { cursor: move; }
+    .cgp .sel { fill: none; stroke: var(--cgp-sel, var(--primary-color, #0f7a52)); stroke-width: 2.5; stroke-dasharray: 5 3; }
+    .cgp .hdl { fill: var(--cgp-sel, var(--primary-color, #0f7a52)); stroke: #fff; stroke-width: 1.5; cursor: nwse-resize; }
+    .cgp .grid { stroke: var(--cgp-muted, #8a948e); stroke-opacity: .12; stroke-width: 1; }
+  `;
+
+  function spot(it, p, o) {
+    const phase = !it.station ? "none" : p ? p.phase : "unknown";
+    const busy = p && BUSY.includes(phase);
+    const w = it.w, h = it.h, S = Math.min(w, h);
+    const extra = upright(it.rot || 0, h > w ? -90 : 0);
+    const fs = Math.max(6, Math.min(S * 0.2, 12));
+    const cw = Math.min(18, w * 0.4), ch = Math.min(11, h * 0.18);
+    const shift = it.station ? ch / 2 + 2 : 0;          // content moves away from the charger
+    const L = Math.max(w, h) - (it.station && h >= w ? ch + 4 : 0);
+    const parts = [];
+    let title = it.label || "";
+    // charging station at the head of the space (top edge before rotation)
+    if (it.station) {
+      parts.push(`<g class="chg" transform="translate(0 ${n(-h / 2 + ch / 2 + 3)})"><rect x="${n(-cw / 2)}" y="${n(-ch / 2)}" width="${n(cw)}" height="${n(ch)}" rx="2"/>
+        <path transform="scale(${n(ch / 16)})" d="M1 -6 -3.5 1H-.5L-1.5 6 3.5 -1H.5z"/></g>`);
+    }
+    // content along the long side of the space
+    const c = [];
+    const lw = L * 0.86;
+    const top = -S / 2 + fs * 0.95;
+    const label = it.label || "";
+    let status = "";
+    if (o.edit) {
+      status = it.station ? (o.pointName ? o.pointName(it) : it.station) : "";
+    } else if (!it.station) {
+      status = "";
+    } else if (!p) {
+      status = o.t("unknown_point");
+    } else if (busy && phase === "charging") {
+      status = `${(p.power / 1000).toLocaleString(o.lang, { minimumFractionDigits: 1, maximumFractionDigits: 1 })} kW`;
+    } else {
+      status = o.t(phase);
+    }
+    const head = [label, status].filter(Boolean);
+    if (head.length) {
+      c.push(`<text y="${n(top)}" font-size="${n(fs)}">${label ? `<tspan class="lbl">${esc(fit(label, lw * 0.45, fs))}</tspan>` : ""}${
+        status ? `<tspan class="m" dx="${label ? n(fs * 0.4) : 0}">${esc(fit(status, lw - (label ? fit(label, lw * 0.45, fs).length * fs * 0.6 : 0), fs))}</tspan>` : ""}</text>`);
+    }
+    if (busy && !o.edit) {
+      const who = (o.showEmployee !== false && p.employee) || (o.showVehicle !== false && p.vehicle) || "";
+      const second = who && o.showVehicle !== false && p.vehicle && p.vehicle !== who ? p.vehicle : "";
+      const nameFs = fs * 1.05;
+      const hasSoc = o.showSoc !== false && p.soc !== null && p.soc !== undefined;
+      const room = S >= fs * (2 + (second ? 1 : 0) + (hasSoc ? 1 : 0)) * 1.15;   // drop the car line if it doesn't fit
+      const showSecond = second && room;
+      const y1 = -S / 2 + fs * 2.15;
+      if (who) c.push(`<text y="${n(y1)}" font-size="${n(nameFs)}">${esc(fit(who, lw, nameFs))}</text>`);
+      if (showSecond) c.push(`<text class="m" y="${n(y1 + fs * 1.1)}" font-size="${n(fs * 0.85)}">${esc(fit(second, lw, fs * 0.85))}</text>`);
+      if (hasSoc) {
+        const bh = Math.max(3, fs * 0.4), by = S / 2 - fs * 0.75, tw = fs * 1.9;
+        const bw = Math.min(lw - tw, L * 0.7), bx = -(bw + tw) / 2;
+        c.push(`<rect class="soc-bg" x="${n(bx)}" y="${n(by - bh / 2)}" width="${n(bw)}" height="${n(bh)}" rx="${n(bh / 2)}"/>
+          <rect class="soc" x="${n(bx)}" y="${n(by - bh / 2)}" width="${n(bw * Math.max(0.03, Math.min(1, p.soc / 100)))}" height="${n(bh)}" rx="${n(bh / 2)}"/>
+          ${p.soc_limit ? `<rect class="lim" x="${n(bx + bw * Math.min(1, p.soc_limit / 100) - 1)}" y="${n(by - bh)}" width="2" height="${n(bh * 2)}"/>` : ""}
+          <text x="${n(bx + bw + fs * 0.3)}" y="${n(by)}" font-size="${n(fs * 0.8)}" style="text-anchor:start">${Math.round(p.soc)}%</text>`);
+      }
+    }
+    if (p) {
+      title = [label, p.station_name + (p.connector_label ? " · " + p.connector_label : ""), o.t(phase),
+        busy && o.showEmployee !== false ? p.employee : "", busy && o.showVehicle !== false ? p.vehicle : "",
+        busy && phase === "charging" ? status : "", busy && p.soc != null ? `${Math.round(p.soc)} %` : ""].filter(Boolean).join(" · ");
+    }
+    const sel = o.edit && o.selected === it.id;
+    const attrs = o.edit ? `data-id="${esc(it.id)}"` : it.station ? `class="click" data-station="${esc(it.station)}" data-connector="${it.connector || 1}"` : "";
+    return `<g class="cgp-spot cgp-${phase}" transform="translate(${n(it.x)} ${n(it.y)}) rotate(${n(it.rot || 0)})"><g ${attrs}>
+      <title>${esc(title)}</title>
+      <rect class="b" x="${n(-w / 2)}" y="${n(-h / 2)}" width="${n(w)}" height="${n(h)}" rx="4"/>
+      ${parts.join("")}
+      <g transform="translate(0 ${n(h >= w ? shift : 0)}) rotate(${extra})">${c.join("")}</g></g>
+      ${sel ? selection(w, h) : ""}</g>`;
+  }
+
+  function area(it, o) {
+    const w = it.w, h = it.h, kind = it.kind || "building";
+    const extra = upright(it.rot || 0, h > w * 1.6 ? -90 : 0);
+    const L = extra % 180 ? h : w, S = extra % 180 ? w : h;
+    const fs = Math.max(8, Math.min(S * 0.3, 18));
+    const line = kind === "road" ? (w >= h ? `<line class="line" x1="${n(-w / 2 + 10)}" y1="0" x2="${n(w / 2 - 10)}" y2="0"/>`
+      : `<line class="line" x1="0" y1="${n(-h / 2 + 10)}" x2="0" y2="${n(h / 2 - 10)}"/>`) : "";
+    const sel = o.edit && o.selected === it.id;
+    return `<g class="cgp-area cgp-k-${esc(kind)}" transform="translate(${n(it.x)} ${n(it.y)}) rotate(${n(it.rot || 0)})"><g ${o.edit ? `data-id="${esc(it.id)}"` : ""}>
+      <rect class="b" x="${n(-w / 2)}" y="${n(-h / 2)}" width="${n(w)}" height="${n(h)}" rx="3"/>${line}
+      ${it.label ? `<g transform="rotate(${extra})"><text class="m" font-size="${n(fs)}" ${kind === "road" ? `y="${n(-S / 2 + fs * 0.9)}"` : ""}>${esc(fit(it.label, L * 0.9, fs))}</text></g>` : ""}</g>
+      ${sel ? selection(w, h) : ""}</g>`;
+  }
+
+  function selection(w, h) {
+    return `<rect class="sel" x="${n(-w / 2 - 4)}" y="${n(-h / 2 - 4)}" width="${n(w + 8)}" height="${n(h + 8)}" rx="6" pointer-events="none"/>
+      <circle class="hdl" data-handle="resize" cx="${n(w / 2)}" cy="${n(h / 2)}" r="7"/>`;
+  }
+
+  function render(layout, getPoint, o) {
+    o = { t: (k) => k, lang: "en", ...(o || {}) };
+    const W = layout.w || 1000, H = layout.h || 600;
+    const items = layout.items || [];
+    const grid = o.edit ? (() => {
+      const lines = [];
+      for (let x = 20; x < W; x += 20) lines.push(`M${x} 0V${H}`);
+      for (let y = 20; y < H; y += 20) lines.push(`M0 ${y}H${W}`);
+      return `<path class="grid" d="${lines.join("")}"/>`;
+    })() : "";
+    const areas = items.filter((i) => i.type === "area").map((i) => area(i, o)).join("");
+    const spots = items.filter((i) => i.type === "spot")
+      .map((i) => spot(i, i.station ? getPoint(i.station, i.connector || 1) : null, o)).join("");
+    return `<svg class="cgp${o.edit ? " edit" : ""}" viewBox="0 0 ${W} ${H}" xmlns="http://www.w3.org/2000/svg" role="img">
+      <style>${CSS}</style>${grid}${areas}${spots}</svg>`;
+  }
+
+  return { render, BUSY };
+})();
+if (typeof window !== "undefined") window.ChargeGatePlan = ChargeGatePlan;
+
 if (!customElements.get("chargegate-card")) {
   customElements.define("chargegate-card", ChargeGateCard);
   window.customCards = window.customCards || [];
@@ -492,6 +710,8 @@ class ChargeGateCardEditor extends HTMLElement {
           border: 1px solid var(--divider-color, #ccc); background: var(--card-background-color, #fff); color: inherit; }
       </style>
       <div class="f">
+        <label>${this._esc(this._t("ed_view"))}<select data-key="view">
+          ${opt("", this._t("ed_view_list"), c.view !== "plan")}${opt("plan", this._t("ed_view_plan"), c.view === "plan")}</select></label>
         <label>${this._esc(this._t("ed_title"))}<input type="text" data-key="title" value="${this._esc(c.title || "")}" placeholder="${this._esc(this._t("title"))}"></label>
         <label>${this._esc(this._t("ed_site"))}<select data-key="site">
           ${opt("", this._t("ed_all"), !c.site)}${sites.map((s) => opt(s, s, c.site === s)).join("")}</select></label>

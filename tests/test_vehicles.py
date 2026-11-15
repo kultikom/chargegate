@@ -166,3 +166,46 @@ def test_cars_in_home_assistant_only_when_enabled():
         await bridge._sync_vehicles()
         assert pubs and all(p == "" for _t, p in pubs)         # switched off: entities removed
     asyncio.run(run())
+
+
+def test_site_plan_clean_save_and_home_assistant():
+    import json as _json
+    import ha_mqtt
+    import plan
+    from db import Site
+
+    bad = {"w": 99999, "h": 10, "items": [
+        {"type": "spot", "id": "s1", "x": 50, "y": 60, "w": 50, "h": 100, "rot": 450, "label": "P1",
+         "station": "W1", "connector": "2"},
+        {"type": "area", "id": "s1", "kind": "lava", "x": -5, "y": 1, "w": 5, "h": 5},
+        {"type": "script", "id": "x"}, "nonsense"]}
+    c = plan.clean(bad)
+    assert c["w"] == 5000 and c["h"] == 150 and len(c["items"]) == 2
+    s1, a = c["items"]
+    assert s1["rot"] == 90 and s1["connector"] == 2 and a["kind"] == "building" and a["id"] != "s1" and a["w"] == 10
+
+    pubs = []
+
+    class Broker:
+        async def publish(self, topic, payload, **kw):
+            pubs.append((topic, payload))
+
+    async def run():
+        await init_db()
+        async with Session() as s:
+            site = Site(name="Testhof")
+            s.add(site)
+            await s.commit()
+            key = plan.site_key(site.id)
+        await plan.save(key, plan.suggest([{"station": "W1", "connector": 1}]))
+        assert (await plan.load(key))["items"][0]["station"] == "W1"
+        bridge = ha_mqtt.Bridge()
+        bridge._client = Broker()
+        await bridge._sync_plans()
+        state = [_json.loads(p) for t, p in pubs if t == f"chargegate/plan/{key}"][0]
+        assert state["source"] == "chargegate_plan" and state["site"] == "Testhof" and state["layout"]["items"]
+        pubs.clear()
+        await plan.delete(key)
+        await bridge._sync_plans()
+        assert ("chargegate/plan/" + key, "") in pubs                    # removed from Home Assistant
+    asyncio.run(run())

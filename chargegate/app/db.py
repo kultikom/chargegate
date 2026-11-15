@@ -8,7 +8,7 @@ import hmac
 import os
 from datetime import UTC, datetime
 
-from sqlalchemy import (Boolean, and_, or_, DateTime, Float, ForeignKey, Integer, String,
+from sqlalchemy import (Boolean, and_, or_, DateTime, Float, ForeignKey, Integer, String, Text,
                         UniqueConstraint)
 from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
@@ -218,6 +218,14 @@ class AppSetting(Base):
     __tablename__ = "app_settings"
     key: Mapped[str] = mapped_column(String(50), primary_key=True)
     value: Mapped[str | None] = mapped_column(String(4000))
+
+
+class PlanLayout(Base):
+    """Site plan: parking spaces, charging points and areas of a site, drawn on the Site plan page."""
+    __tablename__ = "plan_layouts"
+    key: Mapped[str] = mapped_column(String(20), primary_key=True)   # "site-<id>" or "none"
+    data: Mapped[str] = mapped_column(Text)                          # JSON, see plan.py
+    updated: Mapped[datetime] = mapped_column(DateTime, default=utcnow)
 
 
 class SyncState(Base):
