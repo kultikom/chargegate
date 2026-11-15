@@ -16,7 +16,7 @@ from datetime import datetime, timedelta
 from zoneinfo import ZoneInfo
 
 from fastapi import Depends, FastAPI, Form, HTTPException, Request
-from fastapi.responses import HTMLResponse, RedirectResponse, StreamingResponse
+from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse, StreamingResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from sqlalchemy import delete, func, select, update
@@ -30,6 +30,7 @@ import licensing
 import entra_sync
 import i18n
 import vehicles
+import plan
 from db import (AuthEvent, Employee, Session, Site, Station, SyncState, Tag,
                 Transaction, Vehicle, hash_password, normalize_uid, utcnow)
 from i18n import t as _
@@ -450,6 +451,7 @@ async def site_delete(request: Request, site_id: int, user=Depends(admin)):
         if site := await s.get(Site, site_id):
             await s.delete(site)
             await s.commit()
+    await plan.delete(plan.site_key(site_id))
     core.notify_all()
     return back("/stations")
 
@@ -600,6 +602,44 @@ async def tag_delete(request: Request, tag_id: int, user=Depends(admin)):
             await s.commit()
     core.schedule_push_all()
     return back("/employees")
+
+
+# --- Site plan -----------------------------------------------------------------------------------
+
+@web_app.get("/plan", response_class=HTMLResponse)
+async def plan_page(request: Request, user=Depends(admin), site: str = ""):
+    sites = await plan.sites()
+    keys = [x["key"] for x in sites]
+    key = site if site in keys else (keys[0] if keys else "none")
+    points = await plan.charging_points()
+    layout = await plan.load(key)
+    return render(request, "plan.html", sites=sites, key=key, layout=layout,
+                  suggestion=plan.suggest([p for p in points if p["site_key"] == key]),
+                  points=points, site_name=next((x["name"] for x in sites if x["key"] == key), ""))
+
+
+@web_app.get("/plan/data")
+async def plan_data(user=Depends(admin), site: str = "none"):
+    return {"layout": await plan.load(site), "points": await plan.live()}
+
+
+@web_app.post("/plan/{key}")
+async def plan_save(request: Request, key: str, user=Depends(admin)):
+    if key != "none" and plan.site_id_of(key) is None:
+        raise HTTPException(404)
+    try:
+        layout = await plan.save(key, await request.json())
+    except (ValueError, json.JSONDecodeError) as exc:
+        return JSONResponse({"ok": False, "error": str(exc)}, status_code=400)
+    log.info("%s saved the site plan %s (%s items)", user, key, len(layout["items"]))
+    return {"ok": True, "layout": layout}
+
+
+@web_app.post("/plan/{key}/delete")
+async def plan_remove(request: Request, key: str, user=Depends(admin)):
+    await plan.delete(key)
+    flash(request, _("Site plan deleted"))
+    return back(f"/plan?site={key}")
 
 
 # --- Vehicles ------------------------------------------------------------------------------------

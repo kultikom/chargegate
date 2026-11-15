@@ -66,6 +66,13 @@ time), records the battery level at the start and the end, shows it in *Sessions
 stations for their display. If two cars were plugged in at the same moment, set the car of a running
 session on the *Vehicles* page.
 
+## Site plan
+
+ChargeGate › **Site plan**: draw the parking spaces of each site (rows, angled spaces, buildings,
+driveways, green areas) and link each space to a charging point. The plan shows live who is charging,
+which car, power and battery level. On the Home Assistant card choose *View: Site plan* to show it
+there too.
+
 ## Charging point dashboard
 
 The app installs the ChargeGate card and creates a dashboard **Charging points** with all stations:

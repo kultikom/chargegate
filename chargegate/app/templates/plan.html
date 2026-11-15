@@ -1,0 +1,125 @@
+{% extends "base.html" %}
+{% block content %}
+<style>
+  .plan-tabs { display: flex; gap: 6px; flex-wrap: wrap; margin: 0 0 14px; }
+  .plan-tabs a { padding: 5px 12px; border-radius: 999px; border: 1px solid var(--line); color: var(--muted); font-weight: 500; font-size: 14px; }
+  .plan-tabs a.on { background: var(--accent); border-color: var(--accent); color: #fff; }
+  #plan-wrap { --cg-free: #43a047; --cg-charging: #039be5; --cg-connected: #f0a020; --cg-done: #00897b;
+               --cg-fault: #db4437; --cg-offline: #9e9e9e; --cgp-text: var(--ink); --cgp-muted: var(--muted);
+               --cgp-sel: var(--accent); }
+  #plan { border-radius: 8px; background: var(--bg); overflow-x: auto; }
+  #plan svg { min-width: 620px; }   /* phones: scroll sideways instead of shrinking the text */
+  #plan-edit-canvas { overflow-x: auto; touch-action: none; }
+  #plan-edit-canvas svg { min-width: 620px; }
+  .plan-bar { display: flex; gap: 6px; flex-wrap: wrap; align-items: center; margin-bottom: 10px; }
+  .plan-bar .sep { width: 1px; align-self: stretch; background: var(--line); margin: 0 4px; }
+  .plan-bar button.ghost { padding: 6px 10px; font-size: 13px; }
+  .plan-bar input[type=number] { width: 74px; padding: 5px 6px; }
+  .plan-edit { display: grid; grid-template-columns: 1fr 260px; gap: 16px; align-items: start; }
+  @media (max-width: 860px) { .plan-edit { grid-template-columns: 1fr; } }
+  .plan-props { border: 1px solid var(--line); border-radius: 8px; padding: 12px; display: grid; gap: 10px; }
+  .plan-props .two { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+  .plan-legend { display: flex; gap: 14px; flex-wrap: wrap; margin-top: 12px; font-size: 13px; color: var(--muted); }
+  .plan-legend i { display: inline-block; width: 12px; height: 12px; border-radius: 3px; margin-right: 5px; vertical-align: -1px;
+                   border: 2px solid var(--c); background: color-mix(in srgb, var(--c) 18%, transparent); }
+  .plan-info { margin-top: 12px; padding: 10px 14px; border-radius: 8px; background: var(--bg); font-size: 14px; }
+  .plan-info b { font-weight: 600; }
+  .muted-s { color: var(--muted); font-size: 13px; }
+</style>
+
+<h1>{{ _("Site plan") }}</h1>
+<p class="sub">{{ _("Parking spaces and charging points at a glance – live, here and on the Home Assistant card (view “Site plan”).") }}</p>
+
+{% if sites|length > 1 %}
+<nav class="plan-tabs">{% for s in sites %}<a href="{{ base }}/plan?site={{ s.key }}" class="{{ 'on' if s.key == key }}">{{ s.name or _("No site") }}</a>{% endfor %}</nav>
+{% endif %}
+
+<section class="card" id="plan-wrap">
+  <div id="plan-view">
+    <div class="plan-bar">
+      <span class="muted-s" id="plan-status"></span>
+      <span style="flex:1"></span>
+      <button class="ghost" id="btn-edit">{{ _("Edit plan") if layout else _("Draw site plan") }}</button>
+    </div>
+    <div id="plan"></div>
+    <div class="plan-legend">
+      <span style="--c:var(--cg-free)"><i></i>{{ _("phase_free") }}</span>
+      <span style="--c:var(--cg-charging)"><i></i>{{ _("phase_charging") }}</span>
+      <span style="--c:var(--cg-done)"><i></i>{{ _("phase_done") }}</span>
+      <span style="--c:var(--cg-connected)"><i></i>{{ _("phase_connected") }} / {{ _("phase_paused") }}</span>
+      <span style="--c:var(--cg-fault)"><i></i>{{ _("phase_fault") }}</span>
+      <span style="--c:var(--cg-offline)"><i></i>{{ _("phase_offline") }}</span>
+    </div>
+    <div class="plan-info" id="plan-info" hidden></div>
+  </div>
+
+  <div id="plan-editor" hidden>
+    <div class="plan-bar">
+      <button class="ghost" data-act="spot">+ {{ _("Parking space") }}</button>
+      <button class="ghost" data-act="row">+ {{ _("Row") }}</button>
+      <input type="number" id="row-count" min="2" max="40" value="5" title="{{ _('Parking spaces per row') }}" aria-label="{{ _('Parking spaces per row') }}">
+      <button class="ghost" data-act="building">+ {{ _("Building") }}</button>
+      <button class="ghost" data-act="road">+ {{ _("Driveway") }}</button>
+      <button class="ghost" data-act="green">+ {{ _("Green area") }}</button>
+      <span class="sep"></span>
+      <button class="ghost" data-act="rot90" title="R">↻ 90°</button>
+      <button class="ghost" data-act="rot15" title="Shift+R">↻ 15°</button>
+      <button class="ghost" data-act="dup" title="Ctrl+D">{{ _("Duplicate") }}</button>
+      <button class="ghost" data-act="back">{{ _("To the back") }}</button>
+      <button class="ghost danger" data-act="del" title="Del">{{ _("Delete") }}</button>
+    </div>
+    <div class="plan-edit">
+      <div>
+        <div id="plan-edit-canvas"></div>
+        <p class="muted-s" style="margin:8px 0 0">{{ _("Drag to move, drag the dot to resize. Keys: R rotates, Ctrl+D duplicates, Del deletes, arrows move.") }}</p>
+      </div>
+      <div class="plan-props">
+        <div id="props-empty" class="muted-s">{{ _("Select a parking space or area to change it.") }}</div>
+        <div id="props" hidden style="display:grid;gap:10px">
+          <label>{{ _("Label") }}<input id="p-label" maxlength="30"></label>
+          <label id="p-point-wrap">{{ _("Charging point") }}<select id="p-point"></select></label>
+          <label id="p-kind-wrap">{{ _("Type") }}<select id="p-kind">
+            <option value="building">{{ _("Building") }}</option><option value="road">{{ _("Driveway") }}</option>
+            <option value="green">{{ _("Green area") }}</option></select></label>
+          <div class="two">
+            <label>{{ _("Width") }}<input id="p-w" type="number" min="10" step="5"></label>
+            <label>{{ _("Length") }}<input id="p-h" type="number" min="10" step="5"></label>
+          </div>
+          <label>{{ _("Rotation (°)") }}<input id="p-rot" type="number" step="15"></label>
+        </div>
+        <hr style="border:0;border-top:1px solid var(--line);margin:4px 0">
+        <div class="two">
+          <label>{{ _("Plan width") }}<input id="c-w" type="number" min="200" step="20"></label>
+          <label>{{ _("Plan height") }}<input id="c-h" type="number" min="150" step="20"></label>
+        </div>
+        <p class="muted-s" style="margin:0">{{ _("20 units = 1 m · a parking space is 50 × 100") }}</p>
+        <div class="row" style="margin-top:4px"><button id="btn-save">{{ _("Save") }}</button>
+          <button class="ghost" id="btn-cancel" type="button">{{ _("Cancel") }}</button></div>
+        {% if layout %}
+        <form method="post" action="{{ base }}/plan/{{ key }}/delete" onsubmit="return confirm({{ _('Delete the site plan of this site?')|tojson }})">
+          <button class="ghost danger" style="width:100%">{{ _("Delete site plan") }}</button></form>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+</section>
+
+<script src="{{ base }}/static/chargegate-card.js?v={{ version }}"></script>
+<script>
+window.CG_PLAN = {
+  base: {{ base|tojson }}, key: {{ key|tojson }}, layout: {{ layout|tojson }}, suggestion: {{ suggestion|tojson }},
+  points: {{ points|tojson }}, lang: {{ lang|tojson }},
+  t: {
+    free: {{ _("phase_free")|tojson }}, charging: {{ _("phase_charging")|tojson }}, done: {{ _("phase_done")|tojson }},
+    connected: {{ _("phase_connected")|tojson }}, paused: {{ _("phase_paused")|tojson }}, fault: {{ _("phase_fault")|tojson }},
+    unavailable: {{ _("phase_unavailable")|tojson }}, reserved: {{ _("phase_reserved")|tojson }}, offline: {{ _("phase_offline")|tojson }},
+    unknown_point: {{ _("unknown charging point")|tojson }}, no_point: {{ _("– no charging point –")|tojson }},
+    other_sites: {{ _("Other sites")|tojson }}, used: {{ _("already placed")|tojson }}, saved: {{ _("Site plan saved")|tojson }},
+    save_failed: {{ _("Could not save the site plan")|tojson }}, unsaved: {{ _("Unsaved changes – discard them?")|tojson }},
+    updated: {{ _("live · updated {time}")|tojson }}, empty: {{ _("No site plan for this site yet.")|tojson }},
+    since: {{ _("since {time}")|tojson }}, edit: {{ _("Edit plan")|tojson }}, full_at: {{ _("full ~{time}")|tojson }}
+  }
+};
+</script>
+<script src="{{ base }}/static/plan-editor.js?v={{ version }}"></script>
+{% endblock %}

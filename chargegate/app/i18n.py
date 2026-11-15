@@ -308,6 +308,29 @@ DE = {
     "{name} removed": "{name} entfernt",
     "Show the cars in Home Assistant as devices (battery, charge limit, range, plugged in, charging, full at, employee, charging at)":
         "Fahrzeuge in Home Assistant als Geräte anzeigen (Akkustand, Ladelimit, Reichweite, eingesteckt, lädt, voll um, Mitarbeiter, lädt an)",
+    # site plan
+    "Site plan": "Lageplan", "No site": "Ohne Standort", "Edit plan": "Plan bearbeiten",
+    "Draw site plan": "Lageplan zeichnen", "Parking space": "Stellplatz", "Row": "Reihe",
+    "Parking spaces per row": "Stellplätze pro Reihe", "Building": "Gebäude", "Driveway": "Fahrweg",
+    "Green area": "Grünfläche", "Duplicate": "Duplizieren", "Label": "Bezeichnung",
+    "Charging point": "Ladepunkt", "Type": "Art", "Width": "Breite", "Length": "Länge",
+    "Rotation (°)": "Drehung (°)", "Plan width": "Planbreite", "Plan height": "Planhöhe",
+    "20 units = 1 m · a parking space is 50 × 100": "20 Einheiten = 1 m · ein Stellplatz ist 50 × 100",
+    "Cancel": "Abbrechen", "Delete site plan": "Lageplan löschen",
+    "Delete the site plan of this site?": "Den Lageplan dieses Standorts löschen?",
+    "Site plan deleted": "Lageplan gelöscht", "Site plan saved": "Lageplan gespeichert",
+    "Could not save the site plan": "Lageplan konnte nicht gespeichert werden",
+    "Unsaved changes – discard them?": "Ungespeicherte Änderungen – verwerfen?",
+    "live · updated {time}": "live · aktualisiert {time}",
+    "No site plan for this site yet.": "Für diesen Standort gibt es noch keinen Lageplan.",
+    "full ~{time}": "voll ~{time}", "unknown charging point": "unbekannter Ladepunkt",
+    "– no charging point –": "– kein Ladepunkt –", "Other sites": "Andere Standorte",
+    "already placed": "schon platziert", "To the back": "Nach hinten",
+    "Select a parking space or area to change it.": "Stellplatz oder Fläche anklicken, um sie zu ändern.",
+    "Drag to move, drag the dot to resize. Keys: R rotates, Ctrl+D duplicates, Del deletes, arrows move.":
+        "Ziehen verschiebt, der Punkt ändert die Größe. Tasten: R dreht, Strg+D dupliziert, Entf löscht, Pfeile verschieben.",
+    "Parking spaces and charging points at a glance – live, here and on the Home Assistant card (view “Site plan”).":
+        "Stellplätze und Ladepunkte auf einen Blick – live, hier und auf der Home-Assistant-Karte (Ansicht „Lageplan“).",
 }
 
 CATALOGS = {"de": DE}

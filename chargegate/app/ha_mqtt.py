@@ -20,6 +20,7 @@ from sqlalchemy.orm import selectinload
 
 import config
 import core
+import plan
 import vehicles
 from db import Session, Station, Vehicle
 
@@ -36,13 +37,15 @@ _NAMES = {
            "connector": "Connector {c}", "soc": "Battery", "state": "State", "running": "Running sessions", "stations_online": "Stations online",
            "v_soc": "Battery", "v_limit": "Charge limit", "v_range": "Range", "v_plugged": "Plugged in",
            "v_charging": "Charging", "v_time_to_full": "Time to full", "v_full_at": "Full at",
-           "v_state": "Vehicle state", "v_charging_at": "Charging at", "v_updated": "Last update"},
+           "v_state": "Vehicle state", "v_charging_at": "Charging at", "v_updated": "Last update",
+           "plan": "Site plan"},
     "de": {"online": "Online", "status": "Status", "charging": "Lädt", "power": "Leistung",
            "energy": "Energie", "session_energy": "Energie Ladevorgang", "employee": "Mitarbeiter",
            "connector": "Anschluss {c}", "soc": "Akkustand", "state": "Zustand", "running": "Laufende Ladevorgänge", "stations_online": "Stationen online",
            "v_soc": "Akkustand", "v_limit": "Ladelimit", "v_range": "Reichweite", "v_plugged": "Eingesteckt",
            "v_charging": "Lädt", "v_time_to_full": "Restladezeit", "v_full_at": "Voll um",
-           "v_state": "Fahrzeugstatus", "v_charging_at": "Lädt an", "v_updated": "Letzte Aktualisierung"},
+           "v_state": "Fahrzeugstatus", "v_charging_at": "Lädt an", "v_updated": "Letzte Aktualisierung",
+           "plan": "Lageplan"},
 }
 NAMES = _NAMES["de" if config.LANGUAGE == "de" else "en"]
 _PHASES = {
@@ -86,6 +89,7 @@ class Bridge:
         self._known_vehicles: set[int] = set()        # cars with entities
         self._vstate: dict[str, str] = {}             # vehicle state topic -> last payload
         self._vehicles_checked = False                # after (re)connect: clean up cars once
+        self._known_plans: set[str] = set()
 
     # called by core.notify() – must not block
     def listener(self, station_id: str | None) -> None:
@@ -154,6 +158,32 @@ class Bridge:
             await self._sync_station(sid)
         await self._sync_hub()
         await self._sync_vehicles()
+        await self._sync_plans()
+
+    async def _sync_plans(self) -> None:
+        """Site plans for the dashboard card (view: plan) – one diagnostic sensor per site."""
+        device = {"identifiers": [HUB_ID], "name": "ChargeGate", "manufacturer": "KULTIKOM",
+                  "model": "ChargeGate", "sw_version": config.VERSION}
+        seen = set()
+        for key, site, layout, updated in await plan.all_layouts():
+            seen.add(key)
+            topic = f"{BASE}/plan/{key}"
+            await self._config("sensor", "chargegate", f"plan_{key}", {
+                "name": f"{NAMES['plan']} {site}".strip(), "unique_id": f"chargegate_plan_{key}",
+                "device": device, "origin": ORIGIN, "availability_topic": AVAILABILITY,
+                "state_topic": topic, "value_template": "{{ value_json.updated }}",
+                "json_attributes_topic": topic, "device_class": "timestamp",
+                "entity_category": "diagnostic", "icon": "mdi:floor-plan"})
+            text = json.dumps({"source": "chargegate_plan", "site": site, "key": key,
+                               "updated": iso(updated), "layout": layout}, ensure_ascii=False)
+            if self._vstate.get(topic) != text:
+                self._vstate[topic] = text
+                await self._pub(topic, text)
+        for key in self._known_plans - seen:
+            await self._config("sensor", "chargegate", f"plan_{key}", None)
+            await self._pub(f"{BASE}/plan/{key}", "")
+            self._vstate.pop(f"{BASE}/plan/{key}", None)
+        self._known_plans = seen
 
     # --- cars (optional: Vehicles page › "Cars in Home Assistant") --------------------------
 

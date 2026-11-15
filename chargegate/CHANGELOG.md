@@ -1,5 +1,18 @@
 # Changelog
 
+## 1.15.0
+
+- **Site plan** (new page): a simple drawing of the parking spaces and charging points per site.
+  Editor with parking spaces, rows, rotation (also angled spaces), buildings, driveways and green
+  areas, drag to move, resize, duplicate, keyboard shortcuts; each space can be linked to a charging
+  point, spaces without one show the other parking spaces. First plan is suggested from the charging
+  points of the site.
+- **Live view**: colour per state (free, charging, done, connected/paused, fault, offline), employee,
+  car, power and battery level with charge-limit marker; tap a space for details; refreshes every 5 s.
+- **Home Assistant card**: new view *Site plan* (`view: plan`, also in the card editor); tap a space
+  for the charging point's details. Plans are published as diagnostic sensors on the ChargeGate device.
+- New table `plan_layouts`; deleting a site deletes its plan.
+
 ## 1.14.0
 
 - **Cars as Home Assistant devices** (optional, off by default): *Vehicles › Show the cars in Home
