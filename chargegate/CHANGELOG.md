@@ -1,5 +1,10 @@
 # Changelog
 
+## 1.15.1
+
+- Site plan: parking spaces without a charging point can be selected and moved again by clicking
+  anywhere inside them (only their dashed outline reacted before).
+
 ## 1.15.0
 
 - **Site plan** (new page): a simple drawing of the parking spaces and charging points per site.
