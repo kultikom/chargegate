@@ -32,7 +32,7 @@
   <form method="post" action="{{ base }}/license">
     <textarea name="key" rows="4" style="width:100%;font-family:monospace" placeholder="KL1.…" spellcheck="false">{{ license.key or "" }}</textarea>
     <p><button>{{ _("Save") }}</button>
-    {% if license.key %}<button class="ghost danger" name="remove" value="1" onclick="return confirm('{{ _('Remove the license key? Only {n} charging points stay licensed.', n=free) }}')">{{ _("Remove") }}</button>{% endif %}</p>
+    {% if license.key %}<button class="ghost danger" name="remove" value="1" onclick="return confirm({{ _('Remove the license key? Only {n} charging points stay licensed.', n=free)|tojson|forceescape }})">{{ _("Remove") }}</button>{% endif %}</p>
   </form>
 </section>
 

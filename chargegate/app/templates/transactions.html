@@ -40,9 +40,9 @@
   <div class="row" style="align-items:center;margin-bottom:10px">
     <div class="muted" style="font-size:13px" id="sel-info"></div>
     <button class="ghost danger" style="flex:0" name="scope" value="selected"
-      onclick="return checkedCount() > 0 && confirm({{ _('Delete the selected sessions?')|tojson }})">{{ _("Delete selected") }}</button>
+      onclick="return checkedCount() > 0 && confirm({{ _('Delete the selected sessions?')|tojson|forceescape }})">{{ _("Delete selected") }}</button>
     <button class="ghost danger" style="flex:0" name="scope" value="filter"
-      onclick="return confirm({{ _('Delete all {n} sessions shown with this filter? This cannot be undone.', n=txs|length)|tojson }})">{{ _("Delete all {n} shown", n=txs|length) }}</button>
+      onclick="return confirm({{ _('Delete all {n} sessions shown with this filter? This cannot be undone.', n=txs|length)|tojson|forceescape }})">{{ _("Delete all {n} shown", n=txs|length) }}</button>
   </div>
   {% endif %}
   <div class="table-wrap"><table>
@@ -67,7 +67,7 @@
 
 <section class="card">
   <h2>{{ _("Clean up") }}</h2>
-  <form method="post" action="{{ base }}/cleanup" class="row" onsubmit="return confirm({{ _('Delete everything before this date? This cannot be undone.')|tojson }})">
+  <form method="post" action="{{ base }}/cleanup" class="row" onsubmit="return confirm({{ _('Delete everything before this date? This cannot be undone.')|tojson|forceescape }})">
     <div style="flex:0 1 200px"><label>{{ _("Delete everything before") }}</label><input type="date" name="before" required></div>
     <div style="flex:0 1 auto;align-self:center;padding-top:16px">
       <label style="display:inline;font-weight:normal;color:inherit"><input type="checkbox" name="sessions" value="1" checked> {{ _("finished sessions") }}</label>&nbsp;

@@ -325,7 +325,12 @@ DE = {
     "No site plan for this site yet.": "Für diesen Standort gibt es noch keinen Lageplan.",
     "full ~{time}": "voll ~{time}", "unknown charging point": "unbekannter Ladepunkt",
     "– no charging point –": "– kein Ladepunkt –", "Other sites": "Andere Standorte",
-    "already placed": "schon platziert", "To the back": "Nach hinten",
+    "already placed": "schon platziert",
+    # hardening
+    "Too many wrong passwords – try again in {n} s": "Zu viele falsche Passwörter – bitte in {n} s erneut versuchen",
+    "no password": "ohne Passwort",
+    "Without a password, any device on the network could pretend to be this station. Set a password here and the same one in the station (OCPP basic auth).":
+        "Ohne Passwort könnte sich jedes Gerät im Netz als diese Station ausgeben. Hier ein Passwort setzen und dasselbe in der Station eintragen (OCPP Basic Auth).", "To the back": "Nach hinten",
     "Select a parking space or area to change it.": "Stellplatz oder Fläche anklicken, um sie zu ändern.",
     "Drag to move, drag the dot to resize. Keys: R rotates, Ctrl+D duplicates, Del deletes, arrows move.":
         "Ziehen verschiebt, der Punkt ändert die Größe. Tasten: R dreht, Strg+D dupliziert, Entf löscht, Pfeile verschieben.",

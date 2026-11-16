@@ -6,7 +6,8 @@ The Home Assistant app maps its options to the same variables.
 | Variable | HA option | Default | Meaning |
 |---|---|---|---|
 | `DATABASE_URL` | – | SQLite in `/data` | SQLAlchemy URL, e.g. `postgresql+asyncpg://…` |
-| `SECRET_KEY` | – (generated) | – | signs session cookies |
+| `SECRET_KEY` | – (generated) | generated, stored in `DATA_DIR/secret_key` | signs session cookies |
+| `DATA_DIR` | – | folder of the SQLite database | where generated secrets are kept |
 | `TIMEZONE` | – (HA time zone) | `Europe/Berlin` | display time zone |
 | `LANGUAGE_UI` | `language` | `auto` | `auto`, `en` or `de` |
 | `OCPP_PORT` | – | `9000` | WebSocket port for stations |
@@ -20,7 +21,7 @@ The Home Assistant app maps its options to the same variables.
 | `LOCAL_LIST_CHUNK` | – | `100` | tags per SendLocalList message |
 | `APPLY_STATION_CONFIG` | `apply_station_config` | `true` | meter interval + StopTransactionOnInvalidId |
 | `LOG_OCPP_MESSAGES` | `log_ocpp_messages` | `false` | log raw OCPP traffic |
-| `ADMIN_PASSWORD` | `admin_password` | `admin` (HA: empty) | local login; empty disables it |
+| `ADMIN_PASSWORD` | `admin_password` | generated, shown in the log and stored in `DATA_DIR/admin_password` (HA: empty) | local login; set explicitly to empty to disable it |
 | `INGRESS_TRUSTED_IPS` | – | empty (HA: Supervisor) | proxy IPs whose ingress headers are trusted |
 | `MQTT_ENABLED` | `mqtt_enabled` | `false` (HA: `true`) | publish to Home Assistant |
 | `MQTT_HOST`, `MQTT_PORT` | `mqtt_host`, `mqtt_port` | – / `1883` | HA: from the Mosquitto app |
@@ -47,3 +48,7 @@ The Home Assistant app maps its options to the same variables.
   In Home Assistant it is reached through the sidebar (ingress).
 - ChargeGate speaks plain `ws://`. For stations connecting over the internet, terminate TLS
   (`wss://`) in a reverse proxy and use basic auth per station.
+
+## Security
+
+See [security.md](security.md) for what ChargeGate does to protect itself and what you should set up.

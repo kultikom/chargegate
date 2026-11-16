@@ -13,6 +13,7 @@ from sqlalchemy.orm import selectinload
 
 import config
 import licensing
+import security
 from db import (AuthEvent, ConnectorStatus, Employee, Session, Station, Tag,
                 Transaction, normalize_uid, utcnow)
 
@@ -98,6 +99,12 @@ async def authorize(station_id: str, raw_uid: str, connector_id: int | None = No
     ts: the station's time of the check – for sessions sent afterwards from the offline queue.
     """
     uid = normalize_uid(raw_uid)
+    live_check = connector_id is None or not is_late(ts)
+    if live_check and (wait := security.auth_throttle.locked_for(station_id)):
+        # Someone tries tag after tag (e.g. guessing PINs with a fake station): refuse for a while,
+        # without looking anything up. Sessions sent afterwards from the offline queue still count.
+        log.warning("Authorize %s @ %s refused – too many unknown tags, locked for %s s", uid, station_id, wait)
+        return "Invalid", None
     async with Session() as s:
         tag = (await s.execute(select(Tag).options(selectinload(Tag.employee))
                                .where(Tag.uid == uid))).scalar_one_or_none()
@@ -134,6 +141,10 @@ async def authorize(station_id: str, raw_uid: str, connector_id: int | None = No
                             employee_id=emp_id, connector_id=connector_id, ts=ts or utcnow()))
         await s.commit()
     log.info("Authorize %s @ %s -> %s (%s)", uid, station_id, status, reason or "ok")
+    if live_check and status == "Invalid" and security.auth_throttle.fail(station_id):
+        log.warning("%s: %s unknown tags within %s min – tag checks of this station are refused for a while "
+                    "(someone guessing PINs?)", station_id, security.auth_throttle.limit,
+                    int(security.auth_throttle.window // 60))
     return status, emp_id
 
 
@@ -429,8 +440,21 @@ async def lookup_employee(raw_uid: str | None) -> int | None:
         return tag.employee_id if tag else None
 
 
-async def employee_name(raw_uid: str | None) -> str | None:
-    """Name of the active employee owning a tag/PIN – shown on station displays that ask for it."""
+async def employee_name(raw_uid: str | None, station_id: str | None = None) -> str | None:
+    """Name of the active employee owning a tag/PIN – shown on station displays that ask for it.
+
+    With station_id only for a tag this station had accepted in the last 5 minutes, so a station
+    can't be used to look up who owns which card or PIN.
+    """
+    if station_id is not None:
+        uid = normalize_uid(raw_uid or "")
+        async with Session() as s:
+            recent = (await s.execute(select(AuthEvent.id).where(
+                AuthEvent.station_id == station_id, AuthEvent.result == "Accepted",
+                AuthEvent.tag_uid.in_([uid, _reverse_bytes(uid) or uid]),
+                AuthEvent.ts > utcnow() - timedelta(minutes=5)).limit(1))).scalar_one_or_none()
+        if recent is None:
+            return None
     emp_id = await lookup_employee(raw_uid)
     if emp_id is None:
         return None

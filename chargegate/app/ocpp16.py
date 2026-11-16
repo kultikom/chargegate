@@ -107,7 +107,7 @@ class ChargePoint16(CP16):
         # to an accepted tag or PIN: vendorId "ChargeGate", messageId "EmployeeName", data = idTag.
         if vendor_id == "ChargeGate":
             if message_id == "EmployeeName" and data:
-                name = await core.employee_name(str(data))
+                name = await core.employee_name(str(data), self.id)
                 return call_result.DataTransfer(status=DataTransferStatus.accepted, data=name or "")
             # ... and for the car charging in a session (battery level, from the Vehicles page):
             # messageId "VehicleInfo", data = transactionId (or empty for the running session).

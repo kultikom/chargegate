@@ -12,8 +12,11 @@ from starlette.applications import Starlette
 from starlette.routing import WebSocketRoute
 from starlette.websockets import WebSocket, WebSocketDisconnect
 
+from sqlalchemy import func, select
+
 import config
 import core
+import security
 from db import Session, Station, check_password, utcnow
 from ocpp16 import ChargePoint16
 from ocpp201 import ChargePoint201
@@ -51,6 +54,15 @@ async def _check_station(station_id: str, ws: WebSocket) -> str | None:
     async with Session() as s:
         st = await s.get(Station, station_id)
         if st is None:
+            # unknown station: only sensible IDs, and only a limited number waiting for approval –
+            # otherwise anyone on the network could fill the database with fake stations
+            if not security.valid_station_id(station_id):
+                return "invalid charge box ID"
+            if config.REQUIRE_STATION_APPROVAL:
+                pending = (await s.execute(select(func.count()).select_from(Station)
+                                           .where(Station.approved.is_(False)))).scalar()
+                if pending >= security.MAX_PENDING_STATIONS:
+                    return f"too many stations waiting for approval ({pending})"
             s.add(Station(id=station_id, approved=not config.REQUIRE_STATION_APPROVAL,
                           approved_at=None if config.REQUIRE_STATION_APPROVAL else utcnow(),
                           remote_addr=remote, last_seen=utcnow()))
@@ -63,9 +75,13 @@ async def _check_station(station_id: str, ws: WebSocket) -> str | None:
         if not st.approved:
             return "not approved"
         if st.password_hash:
+            if wait := security.station_throttle.locked_for(remote or "?"):
+                return f"too many wrong station passwords from this address – locked for {wait} s"
             pw = _basic_password(ws)
             if pw is None or not check_password(pw, st.password_hash):
+                security.station_throttle.fail(remote or "?")
                 return "basic auth failed"
+            security.station_throttle.success(remote or "?")
     return None
 
 
@@ -83,7 +99,8 @@ async def ocpp_endpoint(ws: WebSocket):
         return
 
     if reason := await _check_station(station_id, ws):
-        log.warning("Rejected connection from %s: %s", station_id, reason)
+        log.warning("Rejected connection from %s (%s): %s", station_id[:80],
+                    ws.client.host if ws.client else "?", reason)
         await ws.close(code=1008)
         return
 

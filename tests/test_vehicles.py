@@ -13,10 +13,7 @@ import tempfile
 from datetime import timedelta
 from pathlib import Path
 
-APP = Path(__file__).resolve().parents[1] / "chargegate" / "app"
-_tmp = tempfile.mkdtemp()
-os.environ["DATABASE_URL"] = f"sqlite+aiosqlite:///{_tmp}/test.db"
-sys.path.insert(0, str(APP))
+# database and import path: see conftest.py
 
 import core  # noqa: E402
 import vehicles  # noqa: E402

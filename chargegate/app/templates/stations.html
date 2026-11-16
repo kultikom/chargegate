@@ -5,7 +5,7 @@
 
 {% set kwb = stations|selectattr("is_kultiwb")|selectattr("id", "in", online)|list %}
 {% if kwb %}<form method="post" action="{{ base }}/stations/update-all-kultiwb" class="inline" style="float:right;margin-top:-46px"
-  onsubmit="return confirm('{{ _('Update all online KultiWB stations? Each installs as soon as no car is charging.') }}')">
+  onsubmit="return confirm({{ _('Update all online KultiWB stations? Each installs as soon as no car is charging.')|tojson|forceescape }})">
   <button class="ghost">{{ _("Update all KultiWB ({n})", n=kwb|length) }}</button></form>{% endif %}
 <section class="card">
   <div class="table-wrap"><table>
@@ -21,7 +21,7 @@
         {% if not st.approved %}<span class="pill warn">{{ _("waiting for approval") }}</span>
         {% elif st.id in online %}<span class="pill ok">{{ _("online") }}</span>
         {% else %}<span class="pill">{{ _("offline") }}</span>{% endif %}
-        {% if st.password_hash %}<span class="pill" title="{{ _('Basic auth enabled') }}">🔒</span>{% endif %}
+        {% if st.password_hash %}<span class="pill" title="{{ _('Basic auth enabled') }}">🔒</span>{% elif st.approved %}<span class="pill warn" title="{{ _('Without a password, any device on the network could pretend to be this station. Set a password here and the same one in the station (OCPP basic auth).') }}">{{ _("no password") }}</span>{% endif %}
         {% if st.id in license.blocked %}<br><a href="{{ base }}/license" class="pill err">{{ _("over the license limit") }}</a>{% endif %}
         {% if st.local_list_status %}<br><span class="muted" style="font-size:12px" title="{{ st.local_list_pushed|local }}">{{ _("Tag list:") }} {{ st.local_list_status|list_status }}</span>{% endif %}
       </td>
@@ -50,7 +50,7 @@
             <button class="ghost" style="margin-top:8px">{{ _("Send tag list now") }}</button></form>{% endif %}
           {% if st.is_kultiwb and st.id in online %}<form method="post" action="{{ base }}/stations/{{ st.id }}/update-firmware" class="inline">
             <button class="ghost" style="margin-top:8px">{{ _("Update KultiWB") }}</button></form>{% endif %}
-          <form method="post" action="{{ base }}/stations/{{ st.id }}/delete" class="inline" onsubmit="return confirm('{{ _('Delete station? Its sessions will be deleted as well.') }}')">
+          <form method="post" action="{{ base }}/stations/{{ st.id }}/delete" class="inline" onsubmit="return confirm({{ _('Delete station? Its sessions will be deleted as well.')|tojson|forceescape }})">
             <button class="ghost danger" style="margin-top:8px">{{ _("Delete") }}</button>
           </form>
         </details>
@@ -92,7 +92,7 @@
           <label style="display:inline;font-weight:normal;color:inherit;white-space:nowrap" title="{{ _('Counts in the Energy dashboard of this Home Assistant') }}">
             <input type="checkbox" name="enabled" value="1" {{ 'checked' if s.counts_energy }} onchange="this.form.submit()"> ⚡ {{ _("Energy dashboard") }}</label>
         </form>
-        <form method="post" action="{{ base }}/sites/{{ s.id }}/delete" class="inline" style="flex:0" onsubmit="return confirm('{{ _('Delete site?') }}')">
+        <form method="post" action="{{ base }}/sites/{{ s.id }}/delete" class="inline" style="flex:0" onsubmit="return confirm({{ _('Delete site?')|tojson|forceescape }})">
           <button class="ghost danger">{{ _("Remove") }}</button></form>
       </div>
     {% else %}<div class="empty">{{ _("No sites yet.") }}</div>{% endfor %}

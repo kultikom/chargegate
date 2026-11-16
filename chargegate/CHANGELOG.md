@@ -1,5 +1,24 @@
 # Changelog
 
+## 1.16.0 – security hardening
+
+- **Fixed:** a car name from MQTT could inject script into the *Vehicles* page (confirmation text);
+  some confirmation dialogs (delete sessions by filter, delete site plan) didn't open and deleted
+  without asking. All confirmation texts are now escaped for their HTML attribute.
+- Admin login: brake after 5 wrong passwords per address (1 min, doubling up to 30 min),
+  constant-time comparison, new session on login, login attempts logged.
+- No guessable defaults any more (standalone): without `ADMIN_PASSWORD` a random password is
+  generated and shown in the log; without `SECRET_KEY` a random key is generated and stored.
+  The Home Assistant app is unchanged (login via Home Assistant).
+- Security headers (CSP, frame only from the same origin, nosniff, referrer policy); cross-site form
+  posts are rejected; request bodies limited to 1 MB, OCPP messages to 1 MB.
+- Stations: tag/PIN guessing is braked per station (20 unknown tags in 10 min); a station only gets
+  the employee name of a tag it has just accepted; wrong station passwords are braked per address;
+  unknown stations need a sensible ID and at most 50 can wait for approval; approved stations
+  without a password are marked on the stations page.
+- MQTT: car IDs checked, at most 200 cars. CSV export neutralises formulas.
+- New: [docs/security.md](../docs/security.md)
+
 ## 1.15.1
 
 - Site plan: parking spaces without a charging point can be selected and moved again by clicking

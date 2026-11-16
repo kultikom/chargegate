@@ -96,7 +96,7 @@
         <div class="row" style="margin-top:4px"><button id="btn-save">{{ _("Save") }}</button>
           <button class="ghost" id="btn-cancel" type="button">{{ _("Cancel") }}</button></div>
         {% if layout %}
-        <form method="post" action="{{ base }}/plan/{{ key }}/delete" onsubmit="return confirm({{ _('Delete the site plan of this site?')|tojson }})">
+        <form method="post" action="{{ base }}/plan/{{ key }}/delete" onsubmit="return confirm({{ _('Delete the site plan of this site?')|tojson|forceescape }})">
           <button class="ghost danger" style="width:100%">{{ _("Delete site plan") }}</button></form>
         {% endif %}
       </div>

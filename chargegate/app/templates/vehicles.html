@@ -31,7 +31,7 @@
       <td>{% if tx %}{{ tx.station.name or tx.station_id }}{% if tx.station.connector_names %} · {{ tx.station.connector_label(tx.connector_id) }}{% endif %}{% else %}<span class="muted">–</span>{% endif %}</td>
       <td style="text-align:right">
         <form method="post" action="{{ base }}/vehicles/{{ v.id }}/delete" class="inline"
-              onsubmit="return confirm('{{ _('Remove {name}? It shows up again as soon as the data source reports it.', name=v.label)|e }}')">
+              onsubmit="return confirm({{ _('Remove {name}? It shows up again as soon as the data source reports it.', name=v.label)|tojson|forceescape }})">
           <button class="ghost danger">{{ _("Remove") }}</button></form>
       </td>
     </tr>
