@@ -69,7 +69,7 @@
           <span class="tag {{ '' if t.active else 'off' }}" title="{{ t.label or '' }}">
             <span class="mono">{{ t.uid }}</span>{% if t.label %}<span class="muted" style="font-size:12px">{{ t.label }}</span>{% endif %}
             <form method="post" action="{{ base }}/tags/{{ t.id }}/toggle" class="inline"><button title="{{ _('block') if t.active else _('unblock') }}">{{ '⏸' if t.active else '▶' }}</button></form>
-            {% if t.source != 'entra' %}<form method="post" action="{{ base }}/tags/{{ t.id }}/delete" class="inline" onsubmit="return confirm('{{ _('Delete tag?') }}')"><button title="{{ _('delete') }}">✕</button></form>{% endif %}
+            {% if t.source != 'entra' %}<form method="post" action="{{ base }}/tags/{{ t.id }}/delete" class="inline" onsubmit="return confirm({{ _('Delete tag?')|tojson|forceescape }})"><button title="{{ _('delete') }}">✕</button></form>{% endif %}
           </span>
         {% else %}<span class="muted">{{ _("no tag") }}</span>{% endfor %}
         </div>
@@ -96,7 +96,7 @@
       <td><span class="pill" {% if e.source == 'entra' %}title="{{ _('Employees from Entra are maintained in Entra ID') }}"{% endif %}>{{ _(e.source) }}</span></td>
       <td style="white-space:nowrap">
         <form method="post" action="{{ base }}/employees/{{ e.id }}/toggle" class="inline"><button class="ghost">{{ _("Deactivate") if e.active else _("Activate") }}</button></form>
-        <form method="post" action="{{ base }}/employees/{{ e.id }}/delete" class="inline" onsubmit="return confirm('{{ _('Delete employee?') }}')"><button class="ghost danger">{{ _("Delete") }}</button></form>
+        <form method="post" action="{{ base }}/employees/{{ e.id }}/delete" class="inline" onsubmit="return confirm({{ _('Delete employee?')|tojson|forceescape }})"><button class="ghost danger">{{ _("Delete") }}</button></form>
       </td>
     </tr>
     {% else %}

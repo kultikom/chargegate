@@ -31,6 +31,8 @@ import entra_sync
 import i18n
 import vehicles
 import plan
+import security
+import hmac
 from db import (AuthEvent, Employee, Session, Site, Station, SyncState, Tag,
                 Transaction, Vehicle, hash_password, normalize_uid, utcnow)
 from i18n import t as _
@@ -218,6 +220,7 @@ web_app = FastAPI(title="ChargeGate", lifespan=lifespan, docs_url=None, redoc_ur
 web_app.add_middleware(SessionMiddleware, secret_key=config.SECRET_KEY, same_site="lax",
                        max_age=12 * 3600)
 web_app.add_middleware(RequestContextMiddleware)
+web_app.add_middleware(security.SecurityMiddleware)
 web_app.mount("/static", StaticFiles(directory=f"{BASE}/static"), name="static")
 
 
@@ -243,10 +246,21 @@ async def login_page(request: Request):
 async def login_local(request: Request, password: str = Form(...)):
     if config.ENTRA_LOGIN_ENABLED:
         raise HTTPException(404)
-    if not config.ADMIN_PASSWORD or password != config.ADMIN_PASSWORD:
+    ip = request.client.host if request.client else "?"
+    if wait := security.login_throttle.locked_for(ip):
+        flash(request, _("Too many wrong passwords – try again in {n} s", n=wait), "err")
+        return back("/login")
+    if not config.ADMIN_PASSWORD or not hmac.compare_digest(password.encode(), config.ADMIN_PASSWORD.encode()):
+        if security.login_throttle.fail(ip):
+            log.warning("Admin login from %s locked after repeated wrong passwords", ip)
+        else:
+            log.info("Wrong admin password from %s", ip)
         flash(request, _("Wrong password"), "err")
         return back("/login")
+    security.login_throttle.success(ip)
+    request.session.clear()                 # new session on login
     request.session["user"] = "admin"
+    log.info("Admin login from %s", ip)
     return back("/")
 
 
@@ -267,6 +281,7 @@ async def auth_callback(request: Request):
         log.warning("Login denied for %s", email)
         flash(request, _("{email} is not an authorized admin.", email=email), "err")
         return back("/login")
+    request.session.clear()
     request.session["user"] = email
     return back("/")
 
@@ -857,7 +872,7 @@ async def transactions_csv(user=Depends(admin), month: str = "", site: str = "",
                                "Tag", "Vehicle", "kWh", "Meter start (Wh)", "Meter end (Wh)", "SoC start (%)", "SoC end (%)",
                                "Stop reason")])
     for t in txs:
-        w.writerow([local(t.started_at), local(t.stopped_at) if t.stopped_at else ("" if t.late else _("running")),
+        w.writerow([security.csv_cell(c) for c in [local(t.started_at), local(t.stopped_at) if t.stopped_at else ("" if t.late else _("running")),
                     t.station.site.name if t.station and t.station.site else "",
                     (t.station.name or t.station_id) if t.station else t.station_id,
                     t.station.connector_label(t.connector_id) if t.station else (t.connector_id or ""),
@@ -867,7 +882,7 @@ async def transactions_csv(user=Depends(admin), month: str = "", site: str = "",
                     i18n.number(t.energy_kwh, 3) if t.energy_kwh is not None else "",
                     t.meter_start_wh or "", t.meter_stop_wh or "",
                     "" if t.soc_start is None else round(t.soc_start),
-                    "" if t.soc_last is None else round(t.soc_last), t.stop_reason or ""])
+                    "" if t.soc_last is None else round(t.soc_last), t.stop_reason or ""]])
     return StreamingResponse(iter(["﻿" + buf.getvalue()]), media_type="text/csv",
                              headers={"Content-Disposition": f"attachment; filename=sessions-{label}.csv"})
 

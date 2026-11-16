@@ -28,7 +28,8 @@ async def main():
         logging.info("Added the charging point to %s older log entries", n)
     servers = [
         uvicorn.Server(uvicorn.Config(ocpp_app, host="0.0.0.0", port=config.OCPP_PORT,
-                                      ws_ping_interval=60, ws_ping_timeout=60, log_level="warning")),
+                                      ws_ping_interval=60, ws_ping_timeout=60, log_level="warning",
+                                      ws_max_size=1_048_576)),     # OCPP messages are a few KB
         uvicorn.Server(uvicorn.Config(web_app, host="0.0.0.0", port=config.WEB_PORT,
                                       proxy_headers=True, log_level="warning")),
     ]
@@ -38,6 +39,11 @@ async def main():
                      ", direct access with password" if config.ADMIN_PASSWORD else "")
     elif not config.ENTRA_LOGIN_ENABLED:
         logging.warning("Entra login not configured – local admin login active")
+    if config.ADMIN_PASSWORD_GENERATED:
+        logging.warning("No ADMIN_PASSWORD set – generated one: %s (stored in %s/admin_password; "
+                        "set ADMIN_PASSWORD to choose your own)", config.ADMIN_PASSWORD, config.DATA_DIR)
+    elif config.ADMIN_PASSWORD and len(config.ADMIN_PASSWORD) < 10:
+        logging.warning("The admin password is short – use at least 10 characters")
     if ha_setup.start():
         logging.info("Setting up the ChargeGate dashboard in Home Assistant")
     if ha_mqtt.start():

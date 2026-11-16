@@ -20,11 +20,12 @@ from __future__ import annotations
 import asyncio
 import json
 import logging
+import re
 from dataclasses import dataclass
 from datetime import datetime, timedelta
 
 import aiomqtt
-from sqlalchemy import select, update
+from sqlalchemy import func, select, update
 from sqlalchemy.orm import selectinload
 
 import config
@@ -41,6 +42,8 @@ FRESH = timedelta(hours=12)             # older battery values are not used
 START_DELAY_S = 2                        # let the station receive its transaction ID first
 TESLAMATE_KEYS = ("display_name", "battery_level", "charge_limit_soc", "plugged_in", "charging_state",
                   "rated_battery_range_km", "est_battery_range_km", "state", "time_to_full_charge")
+CAR_ID = re.compile(r"[A-Za-z0-9_-]{1,32}")   # TeslaMate car IDs are small numbers
+MAX_VEHICLES = 200                           # anyone who can publish to the broker could invent cars
 SESSION_KEYS = {"display_name", "battery_level", "charge_limit_soc", "rated_battery_range_km",
                 "est_battery_range_km", "time_to_full_charge"}
 
@@ -89,7 +92,7 @@ def parse_topic(prefix: str, topic: str) -> tuple[str, str] | None:
     pre = prefix.strip("/").split("/")
     parts = topic.split("/")
     if (len(parts) != len(pre) + 3 or parts[:len(pre)] != pre or parts[len(pre)] != "cars"
-            or parts[-1] not in TESLAMATE_KEYS):
+            or parts[-1] not in TESLAMATE_KEYS or not CAR_ID.fullmatch(parts[-2])):
         return None
     return parts[-2], parts[-1]
 
@@ -148,7 +151,11 @@ async def handle(source: str, external_id: str, key: str, payload: str, now: dat
         v = (await s.execute(select(Vehicle).where(Vehicle.source == source,
                                                    Vehicle.external_id == external_id))).scalar_one_or_none()
         if v is None:
-            v = Vehicle(source=source, external_id=external_id)
+            count = (await s.execute(select(func.count()).select_from(Vehicle))).scalar()
+            if count >= MAX_VEHICLES:
+                log.warning("Ignoring car %s from %s – already %s cars", external_id[:32], source, count)
+                return 0
+            v = Vehicle(source=source, external_id=external_id[:64])
             s.add(v)
             log.info("New vehicle from %s: car %s", source, external_id)
         newly_plugged = apply(v, key, payload, now)

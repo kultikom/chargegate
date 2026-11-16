@@ -1,17 +1,42 @@
 # SPDX-License-Identifier: BUSL-1.1
 # Copyright (c) 2026 KultiKom GmbH & Co. KG – see LICENSE
 """Configuration – everything comes from environment variables (see .env.example)."""
+import logging
 import os
+import secrets
+from pathlib import Path
 
 
 def _bool(name: str, default: bool = False) -> bool:
     return os.getenv(name, str(default)).strip().lower() in ("1", "true", "yes", "on")
 
 
-VERSION = "1.15.1"
+VERSION = "1.16.0"
 
 DATABASE_URL = os.getenv("DATABASE_URL", "sqlite+aiosqlite:///./chargegate.db")
-SECRET_KEY = os.getenv("SECRET_KEY", "change-me")
+# Folder for generated secrets: DATA_DIR, else the folder of the SQLite database, else the working dir
+_db_file = DATABASE_URL.split(":///", 1)[1] if DATABASE_URL.startswith("sqlite") and ":///" in DATABASE_URL else ""
+DATA_DIR = Path(os.getenv("DATA_DIR") or (Path(_db_file).parent if _db_file else "."))
+
+
+def _stored_secret(name: str, nbytes: int = 32) -> str:
+    """A random secret kept in DATA_DIR, created on first start."""
+    f = DATA_DIR / name
+    try:
+        if not f.exists():
+            f.write_text(secrets.token_urlsafe(nbytes))
+            f.chmod(0o600)
+        return f.read_text().strip()
+    except OSError:
+        logging.getLogger("config").warning("Cannot store %s in %s – using a temporary one", name, DATA_DIR)
+        return secrets.token_urlsafe(nbytes)
+
+
+# Signs the session cookies. A known key would let anyone forge an admin session, so the old
+# placeholder "change-me" is never used: without SECRET_KEY a random key is generated and stored.
+SECRET_KEY = os.getenv("SECRET_KEY", "")
+if not SECRET_KEY or SECRET_KEY == "change-me":
+    SECRET_KEY = _stored_secret("secret_key")
 TIMEZONE = os.getenv("TIMEZONE") or os.getenv("TZ") or "Europe/Berlin"
 LANGUAGE = os.getenv("LANGUAGE_UI", "auto")  # auto | en | de
 
@@ -36,7 +61,10 @@ METER_VALUE_INTERVAL = int(os.getenv("METER_VALUE_INTERVAL", "60"))  # seconds w
 DONE_AFTER_S = int(os.getenv("DONE_AFTER_S", "180"))
 
 # Local admin login (empty = disabled)
-ADMIN_PASSWORD = os.getenv("ADMIN_PASSWORD", "admin")
+# No default password any more ("admin" was guessable): standalone installations without Entra get a
+# random one, stored in DATA_DIR/admin_password and shown in the log on start (see main.py).
+ADMIN_PASSWORD = os.getenv("ADMIN_PASSWORD", "")
+ADMIN_PASSWORD_GENERATED = False
 
 # Home Assistant ingress: requests from these proxy IPs count as authenticated
 INGRESS_TRUSTED_IPS = [ip.strip() for ip in os.getenv("INGRESS_TRUSTED_IPS", "").split(",") if ip.strip()]
@@ -75,3 +103,7 @@ HA_ENERGY_NO_SITE = _bool("HA_ENERGY_NO_SITE", True)
 HA_DASHBOARD = _bool("HA_DASHBOARD", False)
 HA_CONFIG_DIR = os.getenv("HA_CONFIG_DIR", "/homeassistant")
 HA_WEBSOCKET_URL = os.getenv("HA_WEBSOCKET_URL", "ws://supervisor/core/websocket")
+
+if (not ADMIN_PASSWORD and not ENTRA_LOGIN_ENABLED and not INGRESS_TRUSTED_IPS
+        and "ADMIN_PASSWORD" not in os.environ):
+    ADMIN_PASSWORD, ADMIN_PASSWORD_GENERATED = _stored_secret("admin_password", 12), True
